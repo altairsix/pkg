@@ -92,15 +92,13 @@ func newManager(prototype interface{}, cookieName string, store gorilla.Store, o
 	return m
 }
 
-func FilterHandler(prototype interface{}, cookieName string, store gorilla.Store, opts ...Option) func(http.Handler) http.Handler {
+func WrapHandler(prototype interface{}, cookieName string, store gorilla.Store, h http.Handler, opts ...Option) http.Handler {
 	m := newManager(prototype, cookieName, store, opts...)
 
-	return func(h http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			req = m.attachSession(req, w)
-			h.ServeHTTP(w, req)
-		})
-	}
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		req = m.attachSession(req, w)
+		h.ServeHTTP(w, req)
+	})
 }
 
 func Filter(prototype interface{}, cookieName string, store gorilla.Store, opts ...Option) web.Filter {
