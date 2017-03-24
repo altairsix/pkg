@@ -11,11 +11,11 @@ import (
 )
 
 var connectString = dbase.ConnectString(dbase.Config{
-	Username: getOrElse("DB_USERNAME", "dealerflare"),
+	Username: getOrElse("DB_USERNAME", "altairsix"),
 	Password: getOrElse("DB_PASSWORD", "password"),
 	Hostname: getOrElse("DB_HOSTNAME", "127.0.0.1"),
 	Port:     getOrElse("DB_PORT", "3306"),
-	Database: getOrElse("DB_DATABASE", "dealerflare"),
+	Database: getOrElse("DB_DATABASE", "altairsix"),
 })
 
 func getOrElse(key, defaultValue string) string {

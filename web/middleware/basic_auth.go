@@ -22,7 +22,7 @@ func BasicAuth(h http.Handler, username, password string, ignores ...string) htt
 
 		u, p, _ := req.BasicAuth()
 		if username != u || password != p {
-			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%v"`, "dealerflare authentication required"))
+			w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Basic realm="%v"`, "Altair Six authentication required"))
 			w.WriteHeader(http.StatusUnauthorized)
 			io.WriteString(w, "unauthorized")
 			return
