@@ -11,6 +11,10 @@ import (
 
 type Filter func(h HandlerFunc) HandlerFunc
 
+func (f Filter) Apply(h HandlerFunc) HandlerFunc {
+	return f(h)
+}
+
 type Router struct {
 	target  *httprouter.Router
 	prefix  string

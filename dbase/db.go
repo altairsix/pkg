@@ -71,25 +71,35 @@ func NewOpenFunc(connectString string) OpenFunc {
 }
 
 type Mock struct {
-	DB *gorm.DB
+	DB            *gorm.DB
+	OpenCount     int
+	CloseCount    int
+	BeginCount    int
+	CommitCount   int
+	RollbackCount int
 }
 
-func (m Mock) Open() (*gorm.DB, error) {
+func (m *Mock) Open() (*gorm.DB, error) {
+	m.OpenCount++
 	return m.DB, nil
 }
 
-func (m Mock) Close(db *gorm.DB) error {
+func (m *Mock) Close(db *gorm.DB) error {
+	m.CloseCount++
 	return nil
 }
 
-func (m Mock) Begin(db *gorm.DB) *gorm.DB {
+func (m *Mock) Begin(db *gorm.DB) *gorm.DB {
+	m.BeginCount++
 	return m.DB
 }
 
-func (m Mock) Commit(db *gorm.DB) *gorm.DB {
+func (m *Mock) Commit(db *gorm.DB) *gorm.DB {
+	m.CommitCount++
 	return m.DB
 }
 
-func (m Mock) Rollback(db *gorm.DB) *gorm.DB {
+func (m *Mock) Rollback(db *gorm.DB) *gorm.DB {
+	m.RollbackCount++
 	return m.DB
 }
