@@ -34,33 +34,81 @@ func New(req *http.Request, w http.ResponseWriter, store gorilla.Store, cookieNa
 	return s.Save(req, w)
 }
 
-func Filter(prototype interface{}, cookieName string, store gorilla.Store) web.Filter {
-	t := reflect.TypeOf(prototype)
+type manager struct {
+	prototype  reflect.Type
+	cookieName string
+	store      gorilla.Store
+	errHandler func(w http.ResponseWriter, req *http.Request, err error)
+}
+
+func (m *manager) attachSession(req *http.Request, w http.ResponseWriter) *http.Request {
+	if _, err := req.Cookie(m.cookieName); err != nil {
+		return req
+	}
+
+	s, err := m.store.Get(req, m.cookieName)
+	if err != nil {
+		m.errHandler(w, req, err)
+		return req
+	}
+
+	v, ok := s.Values[key]
+	if !ok {
+		return req
+	}
+
+	data, ok := v.([]byte)
+	if !ok {
+		return req
+	}
+
+	obj := reflect.New(m.prototype).Interface()
+	err = json.Unmarshal(data, obj)
+	if err != nil {
+		m.errHandler(w, req, err)
+		return req
+	}
+
+	ctx := req.Context()
+	ctx = gocontext.WithValue(ctx, key, obj)
+	req = req.WithContext(ctx)
+
+	s.Save(req, w)
+	return req
+}
+
+func newManager(prototype interface{}, cookieName string, store gorilla.Store, opts ...Option) *manager {
+	m := &manager{
+		prototype:  reflect.TypeOf(prototype),
+		cookieName: cookieName,
+		store:      store,
+		errHandler: func(w http.ResponseWriter, req *http.Request, err error) {},
+	}
+
+	for _, opt := range opts {
+		opt(m)
+	}
+
+	return m
+}
+
+func FilterHandler(prototype interface{}, cookieName string, store gorilla.Store, opts ...Option) func(http.Handler) http.Handler {
+	m := newManager(prototype, cookieName, store, opts...)
+
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			req = m.attachSession(req, w)
+			h.ServeHTTP(w, req)
+		})
+	}
+}
+
+func Filter(prototype interface{}, cookieName string, store gorilla.Store, opts ...Option) web.Filter {
+	m := newManager(prototype, cookieName, store, opts...)
 
 	return func(h web.HandlerFunc) web.HandlerFunc {
 		return func(c *web.Context) error {
-			if _, err := c.Request.Cookie(cookieName); err == nil {
-				s, err := store.Get(c.Request, cookieName)
-				if err != nil {
-					return err
-				}
-				if v, ok := s.Values[key]; ok {
-					if data, ok := v.([]byte); ok {
-						obj := reflect.New(t).Interface()
-						err := json.Unmarshal(data, obj)
-						if err != nil {
-							return err
-						}
-
-						ctx := c.Request.Context()
-						ctx = gocontext.WithValue(ctx, key, obj)
-						c.Request = c.Request.WithContext(ctx)
-					}
-				}
-
-				s.Save(c.Request, c.Response)
-			}
-
+			c.Request = m.attachSession(c.Request, c.Response)
 			return h(c)
 		}
 	}
