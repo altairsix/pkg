@@ -1,8 +1,6 @@
 package types
 
 import (
-	"time"
-
 	"github.com/pkg/errors"
 	"github.com/savaki/snowflake"
 )
@@ -17,12 +15,6 @@ func (fn IDFactory) NewID() ID {
 
 func (fn IDFactory) NewKey() Key {
 	return fn().Key()
-}
-
-func MockIDFactory() func() ID {
-	return func() ID {
-		return ID(time.Now().UnixNano())
-	}
 }
 
 func NewIDFactory(hosts ...string) (IDFactory, error) {

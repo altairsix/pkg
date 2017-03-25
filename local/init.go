@@ -1,4 +1,4 @@
-package awstest
+package local
 
 import (
 	"encoding/json"
@@ -6,7 +6,10 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync/atomic"
+	"time"
 
+	"github.com/altairsix/pkg/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -23,6 +26,10 @@ var (
 	DynamoDB *dynamodb.DynamoDB
 	SNS      *sns.SNS
 	SQS      *sqs.SQS
+)
+
+var (
+	IDFactory types.IDFactory
 )
 
 func init() {
@@ -65,4 +72,18 @@ func init() {
 	DynamoDB = dynamodb.New(s)
 	SNS = sns.New(s)
 	SQS = sqs.New(s)
+
+	id := time.Now().UnixNano()
+	IDFactory = func() types.ID {
+		atomic.AddInt64(&id, 1)
+		return types.ID(id)
+	}
+}
+
+func NewID() types.ID {
+	return IDFactory.NewID()
+}
+
+func NewKey() types.Key {
+	return IDFactory.NewKey()
 }

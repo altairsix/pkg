@@ -1,4 +1,4 @@
-package awstest
+package awscloud
 
 import "github.com/aws/aws-sdk-go/service/sns"
 
