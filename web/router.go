@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
-	"github.com/savaki/swaggering"
+	"github.com/savaki/swag/swagger"
 )
 
 type Filter func(h HandlerFunc) HandlerFunc
@@ -87,9 +87,9 @@ func (r *Router) Group(prefix string, filters ...Filter) *Router {
 	}
 }
 
-func (r *Router) Bind(endpoints ...swaggering.Endpoint) error {
+func (r *Router) Bind(endpoints ...*swagger.Endpoint) error {
 	for _, endpoint := range endpoints {
-		h := endpoint.Func.(HandlerFunc)
+		h := endpoint.Handler.(HandlerFunc)
 		r.Handle(endpoint.Method, endpoint.Path, h)
 	}
 

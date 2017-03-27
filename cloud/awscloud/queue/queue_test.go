@@ -5,17 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/altairsix/pkg/cloud/awscloud/awstest"
 	"github.com/altairsix/pkg/cloud/awscloud/queue"
 	"github.com/altairsix/pkg/context"
-
+	"github.com/altairsix/pkg/local"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestQueue(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background(awstest.Env))
+	ctx, cancel := context.WithCancel(context.Background(local.Env))
 	go func() {
 		time.Sleep(time.Second * 8)
 	}()
@@ -26,7 +25,7 @@ func TestQueue(t *testing.T) {
 
 	// -- obtain a reference to the queue ------------------------------------
 
-	out, err := awstest.SQS.CreateQueue(&sqs.CreateQueueInput{
+	out, err := local.SQS.CreateQueue(&sqs.CreateQueueInput{
 		QueueName: aws.String("queue-test"),
 	})
 	assert.Nil(t, err)
@@ -36,7 +35,7 @@ func TestQueue(t *testing.T) {
 
 	go func() {
 		for i := 1; i <= int(sent); i++ {
-			_, err = awstest.SQS.SendMessage(&sqs.SendMessageInput{
+			_, err = local.SQS.SendMessage(&sqs.SendMessageInput{
 				MessageBody: aws.String(body),
 				QueueUrl:    queueUrl,
 			})
@@ -57,6 +56,6 @@ func TestQueue(t *testing.T) {
 		return nil
 	}
 
-	done := queue.Start(ctx, awstest.SQS, queueUrl, fn, queue.Workers(5))
+	done := queue.Start(ctx, local.SQS, queueUrl, fn, queue.Workers(5))
 	<-done
 }

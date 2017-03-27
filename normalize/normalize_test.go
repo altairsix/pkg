@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/altairsix/pkg/normalize"
-
 	"github.com/stretchr/testify/assert"
 )
 

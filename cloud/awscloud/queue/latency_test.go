@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/altairsix/pkg/cloud/awscloud/awstest"
 	"github.com/altairsix/pkg/cloud/awscloud/queue"
 	"github.com/altairsix/pkg/context"
 
+	"github.com/altairsix/pkg/local"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sqs"
@@ -30,9 +30,9 @@ type Event struct {
 }
 
 func TestLatency(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background(awstest.Env))
+	ctx, cancel := context.WithCancel(context.Background(local.Env))
 
-	queueUrl, err := queue.Subscribe(ioutil.Discard, awstest.SNS, awstest.SQS, Name, Name)
+	queueUrl, err := queue.Subscribe(ioutil.Discard, local.SNS, local.SQS, Name, Name)
 	if !assert.Nil(t, err) {
 		return
 	}
@@ -70,15 +70,15 @@ func TestLatency(t *testing.T) {
 
 		return nil
 	}
-	done := queue.Start(ctx, awstest.SQS, queueUrl, fn, queue.Workers(workers))
+	done := queue.Start(ctx, local.SQS, queueUrl, fn, queue.Workers(workers))
 
-	topic, err := awstest.SNS.CreateTopic(&sns.CreateTopicInput{
+	topic, err := local.SNS.CreateTopic(&sns.CreateTopicInput{
 		Name: aws.String(Name),
 	})
 	assert.Nil(t, err)
 
 	for id := int64(0); id < sent; id++ {
-		_, err := awstest.SNS.Publish(&sns.PublishInput{
+		_, err := local.SNS.Publish(&sns.PublishInput{
 			TopicArn: topic.TopicArn,
 			Message:  aws.String(fmt.Sprintf(`{"ID": "%v", "Time": "%v"}`, id, time.Now().UnixNano())),
 		})
