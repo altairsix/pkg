@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/altairsix/pkg/context"
 	"github.com/altairsix/pkg/types"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -23,6 +24,7 @@ const (
 )
 
 var (
+	Context  context.Kontext = context.Background(Env)
 	DynamoDB *dynamodb.DynamoDB
 	SNS      *sns.SNS
 	SQS      *sqs.SQS
