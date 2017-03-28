@@ -85,7 +85,13 @@ func Background(env string) Kontext {
 		zap.Stringer("timestamp", &timestamp{}),
 		zap.String("env", env),
 	)
-	logger, err := zap.NewProduction(fields)
+
+	config := zap.NewProductionConfig()
+	if env == "local" {
+		config = zap.NewDevelopmentConfig()
+	}
+
+	logger, err := config.Build(fields)
 	if err != nil {
 		log.Fatalln(err)
 	}
