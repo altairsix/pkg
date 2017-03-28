@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/savaki/swag"
 	"github.com/savaki/swag/swagger"
 )
 
@@ -50,9 +51,9 @@ func (r *Router) applyFilters(h HandlerFunc) HandlerFunc {
 }
 
 func (r *Router) Handle(method, path string, h HandlerFunc) {
-	path = FixPath(path)
+	path = filepath.Join(r.prefix, swag.ColonPath(path))
 	h = r.applyFilters(h)
-	r.target.Handle(strings.ToUpper(method), filepath.Join(r.prefix, path), Wrap(h))
+	r.target.Handle(strings.ToUpper(method), path, Wrap(h))
 }
 
 func (r *Router) GET(path string, h HandlerFunc) {
