@@ -6,17 +6,22 @@ import (
 	"os"
 
 	"github.com/altairsix/pkg/dbase"
+	_ "github.com/altairsix/pkg/local" // local will import env variables prior to connect string being defined
 	"github.com/jinzhu/gorm"
 	"github.com/pkg/errors"
 )
 
-var connectString = dbase.ConnectString(dbase.Config{
-	Username: getOrElse("DB_USERNAME", "altairsix"),
-	Password: getOrElse("DB_PASSWORD", "password"),
-	Hostname: getOrElse("DB_HOSTNAME", "127.0.0.1"),
-	Port:     getOrElse("DB_PORT", "3306"),
-	Database: getOrElse("DB_DATABASE", "altairsix"),
-})
+var connectString string
+
+func init() {
+	connectString = dbase.ConnectString(dbase.Config{
+		Username: getOrElse("DB_USERNAME", "altairsix"),
+		Password: getOrElse("DB_PASSWORD", "password"),
+		Hostname: getOrElse("DB_HOSTNAME", "127.0.0.1"),
+		Port:     getOrElse("DB_PORT", "3306"),
+		Database: getOrElse("DB_DATABASE", "altairsix"),
+	})
+}
 
 func getOrElse(key, defaultValue string) string {
 	v := os.Getenv(key)
