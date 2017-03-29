@@ -15,15 +15,17 @@ import (
 	"time"
 
 	"github.com/altairsix/pkg/web"
-	"github.com/savaki/swag/swagger"
 )
 
 type Client struct {
 	codebase string
 	authFunc func(*http.Request) error
-	client   *http.Client
 	writer   io.Writer
+	filters  web.Filters
 	observer func(code int, method, endpoint string, elapsed time.Duration)
+	factory  func(filters web.Filters) http.Handler
+
+	client *http.Client
 }
 
 func (c *Client) Do(method, path string, values url.Values, body interface{}, opts ...func(r *http.Request)) (*http.Response, error) {
@@ -163,18 +165,8 @@ func (c *Client) Cookie(name string) (string, bool) {
 	return "", false
 }
 
-func New(handler http.Handler, opts ...Option) *Client {
-	cookieJar, _ := cookiejar.New(nil)
-	httpClient := &http.Client{
-		Jar: cookieJar,
-	}
-
-	if handler != nil {
-		httpClient.Transport = &roundTripper{handler: handler}
-	}
-
+func New(opts ...Option) *Client {
 	c := &Client{
-		client:   httpClient,
 		observer: func(code int, method, endpoint string, elapsed time.Duration) {},
 		authFunc: func(req *http.Request) error { return nil },
 		writer:   ioutil.Discard,
@@ -183,6 +175,20 @@ func New(handler http.Handler, opts ...Option) *Client {
 	for _, opt := range opts {
 		opt(c)
 	}
+
+	cookieJar, _ := cookiejar.New(nil)
+	httpClient := &http.Client{
+		Jar: cookieJar,
+	}
+
+	var handler http.Handler
+	if c.factory != nil {
+		handler = c.factory(c.filters)
+	}
+	if handler != nil {
+		httpClient.Transport = &roundTripper{handler: handler}
+	}
+	c.client = httpClient
 
 	if c.codebase == "" {
 		c.codebase = "http://localhost"
@@ -193,15 +199,4 @@ func New(handler http.Handler, opts ...Option) *Client {
 	c.codebase = pat.ReplaceAllString(c.codebase, "")
 
 	return c
-}
-
-// Endpoint constructs a client directly from a swagger endpoint
-func Endpoints(endpoints ...*swagger.Endpoint) http.Handler {
-	router := web.NewRouter()
-	for _, endpoint := range endpoints {
-		h := endpoint.Handler.(web.HandlerFunc)
-		router.Handle(endpoint.Method, endpoint.Path, h)
-	}
-
-	return router
 }
