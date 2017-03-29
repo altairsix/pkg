@@ -9,12 +9,20 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/pkg/errors"
 )
 
 type Millis int64
 
 const (
 	Scale = int64(time.Millisecond)
+)
+
+var (
+	timeFormats = []string{
+		time.RFC3339,
+		time.RFC1123,
+	}
 )
 
 func Now() Millis {
@@ -81,6 +89,50 @@ func (em Millis) MarshalJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(v)
+}
+
+type millisModel struct {
+	Value int64
+}
+
+func (em *Millis) UnmarshalJSON(data []byte) error {
+	if data[0] == '"' {
+		v := ""
+		err := json.Unmarshal(data, &v)
+		if err != nil {
+			return err
+		}
+
+		for _, layout := range timeFormats {
+			t, err := time.Parse(layout, v)
+			if err == nil {
+				*em = Time(t)
+				return nil
+			}
+		}
+
+		return errors.New("invalid time format")
+
+	} else if data[0] == '{' {
+		v := millisModel{}
+		err := json.Unmarshal(data, &v)
+		if err != nil {
+			return err
+		}
+
+		*em = Millis(v.Value)
+
+	} else {
+		v := int64(0)
+		err := json.Unmarshal(data, &v)
+		if err != nil {
+			return err
+		}
+
+		*em = Millis(v)
+	}
+
+	return nil
 }
 
 func UnixNano(v int64) Millis {
