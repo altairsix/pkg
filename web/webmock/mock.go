@@ -13,6 +13,9 @@ import (
 	"net/url"
 	"regexp"
 	"time"
+
+	"github.com/altairsix/pkg/web"
+	"github.com/savaki/swag/swagger"
 )
 
 type Client struct {
@@ -190,4 +193,12 @@ func New(handler http.Handler, opts ...Option) *Client {
 	c.codebase = pat.ReplaceAllString(c.codebase, "")
 
 	return c
+}
+
+// Endpoint constructs a client directly from a swagger endpoint
+func Endpoint(endpoint *swagger.Endpoint, opts ...Option) *Client {
+	router := web.NewRouter()
+	h := endpoint.Handler.(web.HandlerFunc)
+	router.Handle(endpoint.Method, endpoint.Path, h)
+	return New(router, opts...)
 }
