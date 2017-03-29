@@ -196,9 +196,12 @@ func New(handler http.Handler, opts ...Option) *Client {
 }
 
 // Endpoint constructs a client directly from a swagger endpoint
-func Endpoint(endpoint *swagger.Endpoint, opts ...Option) *Client {
+func Endpoints(endpoints ...*swagger.Endpoint) http.Handler {
 	router := web.NewRouter()
-	h := endpoint.Handler.(web.HandlerFunc)
-	router.Handle(endpoint.Method, endpoint.Path, h)
-	return New(router, opts...)
+	for _, endpoint := range endpoints {
+		h := endpoint.Handler.(web.HandlerFunc)
+		router.Handle(endpoint.Method, endpoint.Path, h)
+	}
+
+	return router
 }
