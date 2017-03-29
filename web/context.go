@@ -81,7 +81,7 @@ func (c *Context) XMLBlob(status int, in []byte) error {
 	return err
 }
 
-func (c *Context) String(status int, in string) error {
+func (c *Context) Text(status int, in string) error {
 	c.Response.Header().Set("Content-Type", "text/plain")
 	c.Response.WriteHeader(status)
 	_, err := io.WriteString(c.Response, in)
