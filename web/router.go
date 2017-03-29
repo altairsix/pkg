@@ -16,10 +16,23 @@ func (f Filter) Apply(h HandlerFunc) HandlerFunc {
 	return f(h)
 }
 
+type Filters []Filter
+
+func (f Filters) Apply(h HandlerFunc) HandlerFunc {
+	if f != nil {
+		for i := len(f) - 1; i >= 0; i-- {
+			filter := f[i]
+			h = filter.Apply(h)
+		}
+	}
+
+	return h
+}
+
 type Router struct {
 	target  *httprouter.Router
 	prefix  string
-	filters []Filter
+	filters Filters
 }
 
 func NewRouter() *Router {
@@ -30,7 +43,7 @@ func NewRouter() *Router {
 
 func (r *Router) Use(filters ...Filter) {
 	if r.filters == nil {
-		r.filters = []Filter{}
+		r.filters = Filters{}
 	}
 
 	r.filters = append(r.filters, filters...)
@@ -40,19 +53,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.target.ServeHTTP(w, req)
 }
 
-func (r *Router) applyFilters(h HandlerFunc) HandlerFunc {
-	if r.filters != nil {
-		for i := len(r.filters) - 1; i >= 0; i-- {
-			h = r.filters[i](h)
-		}
-	}
-
-	return h
-}
-
 func (r *Router) Handle(method, path string, h HandlerFunc) {
 	path = filepath.Join(r.prefix, swag.ColonPath(path))
-	h = r.applyFilters(h)
+	h = r.filters.Apply(h)
 	r.target.Handle(strings.ToUpper(method), path, Wrap(h))
 }
 
