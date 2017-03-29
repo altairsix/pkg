@@ -11,11 +11,14 @@ import (
 
 	"github.com/altairsix/pkg/context"
 	"github.com/altairsix/pkg/types"
+	"github.com/altairsix/pkg/web/session"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
+	aws_session "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sqs"
+	"github.com/gorilla/securecookie"
+	"github.com/gorilla/sessions"
 )
 
 const (
@@ -31,10 +34,16 @@ var (
 )
 
 var (
+	SessionStore sessions.Store
+)
+
+var (
 	IDFactory types.IDFactory
 )
 
 func init() {
+	// Read Env
+	//
 	dir, err := filepath.Abs(".")
 	if err != nil {
 		log.Fatalln(err)
@@ -65,8 +74,10 @@ func init() {
 		region = "us-west-2"
 	}
 
+	// Configure AWS
+	//
 	cfg := &aws.Config{Region: aws.String(region)}
-	s, err := session.NewSession(cfg)
+	s, err := aws_session.NewSession(cfg)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -75,10 +86,30 @@ func init() {
 	SNS = sns.New(s)
 	SQS = sqs.New(s)
 
+	// Setup IDFactory
+	//
 	id := time.Now().UnixNano()
 	IDFactory = func() types.ID {
 		atomic.AddInt64(&id, 1)
 		return types.ID(id)
+	}
+
+	// SessionStore
+	//
+	codecs, err := session.EnvCodecs()
+	if err != nil {
+		hashKey := securecookie.GenerateRandomKey(64)
+		blockKey := securecookie.GenerateRandomKey(32)
+
+		codecs = []securecookie.Codec{securecookie.New(hashKey, blockKey)}
+	}
+
+	SessionStore = &sessions.CookieStore{
+		Codecs: codecs,
+		Options: &sessions.Options{
+			Path:   "/",
+			MaxAge: 86400 * 30,
+		},
 	}
 }
 
