@@ -21,7 +21,7 @@ var (
 )
 
 type Handler interface {
-	Apply() error
+	Apply(v string) error
 }
 
 type HandlerFunc func(string) error
@@ -30,12 +30,20 @@ func (fn HandlerFunc) Apply(v string) error {
 	return fn(v)
 }
 
+// SQS provides an interface over *sqs.SQS to simplify testing
 type SQS interface {
+	// ReceiveMessage is the same as (*sqs.SQS) ReceiveMessage
 	ReceiveMessage(input *sqs.ReceiveMessageInput) (*sqs.ReceiveMessageOutput, error)
+
+	// DeleteMessageBatch is the same as (*sqs.SQS) DeleteMessageBatch
 	DeleteMessageBatch(input *sqs.DeleteMessageBatchInput) (*sqs.DeleteMessageBatchOutput, error)
 }
 
-func Handle(sqsApi SQS, queryUrl *string, concurrency int, fn HandlerFunc) sns.HandlerFunc {
+func HandleFunc(sqsApi SQS, queryUrl *string, concurrency int, fn HandlerFunc) sns.HandlerFunc {
+	return Handle(sqsApi, queryUrl, concurrency, fn)
+}
+
+func Handle(sqsApi SQS, queryUrl *string, concurrency int, fn Handler) sns.HandlerFunc {
 	return func(event *sns.Event, c *apex.Context) error {
 		ch, err := receiveMessages(sqsApi, queryUrl, event)
 		if err != nil {
@@ -80,7 +88,7 @@ func receiveMessages(sqsApi SQS, queryUrl *string, event *sns.Event) (<-chan *sq
 	return ch, nil
 }
 
-func processMessages(ch <-chan *sqs.Message, concurrency int, fn HandlerFunc) <-chan *sqs.Message {
+func processMessages(ch <-chan *sqs.Message, concurrency int, h Handler) <-chan *sqs.Message {
 	// launch workers
 	//
 	wg := &sync.WaitGroup{}
@@ -91,7 +99,7 @@ func processMessages(ch <-chan *sqs.Message, concurrency int, fn HandlerFunc) <-
 		go func() {
 			defer wg.Done()
 			for m := range ch {
-				if err := fn(*m.Body); err == nil {
+				if err := h.Apply(*m.Body); err == nil {
 					del <- m
 				}
 			}

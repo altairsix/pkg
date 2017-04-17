@@ -88,10 +88,10 @@ func TestProcessMessages(t *testing.T) {
 	close(ch)
 
 	calls := 0
-	del := processMessages(ch, 1, func(string) error {
+	del := processMessages(ch, 1, HandlerFunc(func(string) error {
 		calls++
 		return nil
-	})
+	}))
 
 	assert.Equal(t, a, <-del)
 	assert.Equal(t, b, <-del)
@@ -132,7 +132,7 @@ func TestHandle(t *testing.T) {
 	queryUrl := aws.String("blah")
 
 	calls := 0
-	fn := Handle(m, queryUrl, 1, func(in string) error {
+	fn := HandleFunc(m, queryUrl, 1, func(in string) error {
 		calls++
 		return nil
 	})
