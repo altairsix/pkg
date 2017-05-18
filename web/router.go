@@ -84,10 +84,15 @@ func (r *Router) HEAD(path string, h HandlerFunc) {
 }
 
 func (r *Router) Group(prefix string, filters ...Filter) *Router {
+	joined := filepath.Join(r.prefix, prefix)
+	if joined != "" && !strings.HasPrefix(joined, "/") {
+		joined = "/" + joined
+	}
+
 	return &Router{
 		target:  r.target,
-		prefix:  prefix,
-		filters: r.filters,
+		prefix:  joined,
+		filters: append(r.filters, filters...),
 	}
 }
 
