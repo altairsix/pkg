@@ -94,3 +94,10 @@ func (c *Context) HTML(status int, in string) error {
 	_, err := io.WriteString(c.Response, in)
 	return err
 }
+
+// Redirect the browser to a new location; status is typically http.StatusTemporaryRedirect
+func (c *Context) Redirect(status int, location string) error {
+	c.Response.Header().Set("Location", location)
+	c.Response.WriteHeader(status)
+	return nil
+}
