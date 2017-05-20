@@ -1,4 +1,4 @@
-package apiclient_test
+package restclient_test
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/altairsix/pkg/web/apiclient"
+	"github.com/altairsix/pkg/web/restclient"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -27,9 +27,9 @@ func TestNew(t *testing.T) {
 	h := NewHandler(expected)
 
 	buf := bytes.NewBuffer(nil)
-	client, err := apiclient.New(
-		apiclient.WithHandler(h),
-		apiclient.WithOutput(buf),
+	client, err := restclient.New(
+		restclient.WithHandler(h),
+		restclient.WithOutput(buf),
 	)
 	assert.Nil(t, err)
 
