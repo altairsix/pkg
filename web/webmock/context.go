@@ -60,6 +60,16 @@ func WithForm(key, value string) ContextOption {
 	}
 }
 
+func WithValue(key string, value interface{}) ContextOption {
+	return func(m *mock) {
+		if m.data == nil {
+			m.data = map[string]interface{}{}
+		}
+
+		m.data[key] = value
+	}
+}
+
 func NewContext(opts ...ContextOption) Context {
 	req, _ := http.NewRequest("GET", "/", nil)
 	m := &mock{
