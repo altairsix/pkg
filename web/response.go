@@ -3,7 +3,11 @@ package web
 import "net/http"
 
 type Response struct {
-	Status int
+	Status int `json:"status"`
 }
 
-var Ok = Response{Status: http.StatusOK}
+var (
+	Ok        = Response{Status: http.StatusOK}
+	NotFound  = Response{Status: http.StatusNotFound}
+	Forbidden = Response{Status: http.StatusForbidden}
+)
