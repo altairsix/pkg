@@ -93,7 +93,7 @@ func Endpoints(endpoints ...*swagger.Endpoint) Option {
 					h = filters.Apply(h)
 					router.Handle(endpoint.Method, endpoint.Path, h)
 
-				case func(c *web.Context) error:
+				case func(c web.Context) error:
 					h = filters.Apply(h)
 					router.Handle(endpoint.Method, endpoint.Path, h)
 

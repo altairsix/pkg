@@ -14,8 +14,8 @@ import (
 
 func SetHeader(k, v string) web.Filter {
 	return func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
-			c.Response.Header().Set(k, v)
+		return func(c web.Context) error {
+			c.Response().Header().Set(k, v)
 			return h(c)
 		}
 	}
@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("web.HandlerFunc", func(t *testing.T) {
-		handler := func(c *web.Context) error {
+		handler := func(c web.Context) error {
 			return c.Text(http.StatusOK, msg)
 		}
 
@@ -62,7 +62,7 @@ func TestNew(t *testing.T) {
 	})
 
 	t.Run("*swagger.Endpoint", func(t *testing.T) {
-		handler := func(c *web.Context) error {
+		handler := func(c web.Context) error {
 			return c.Text(http.StatusOK, msg)
 		}
 		e := endpoint.New("get", "/blah", "swagger defined endpoint",

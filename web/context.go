@@ -6,30 +6,65 @@ import (
 	"net/http"
 
 	"github.com/altairsix/pkg/types"
-
 	"github.com/julienschmidt/httprouter"
 )
 
-type HandlerFunc func(c *Context) error
+type HandlerFunc func(c Context) error
 
-type Context struct {
-	Request    *http.Request
-	Response   http.ResponseWriter
+type Context interface {
+	Response() http.ResponseWriter
+	Request() *http.Request
+	WithRequest(req *http.Request) Context
+	RouteValue(name string) string
+	RouteKey(name string) types.Key
+	RouteID(name string) types.ID
+	Query(name string) string
+	FormValue(name string) string
+	Set(k string, v interface{})
+	Get(k string) interface{}
+	JSON(status int, in interface{}) error
+	XMLBlob(status int, in []byte) error
+	Text(status int, in string) error
+	HTML(status int, in string) error
+	Redirect(status int, location string) error
+}
+
+type rawContext struct {
+	request    *http.Request
+	response   http.ResponseWriter
 	params     httprouter.Params
 	data       map[string]interface{}
 	formParsed bool
 }
 
-func (c *Context) RouteValue(name string) string {
-	return c.params.ByName(name)
+func (r *rawContext) Response() http.ResponseWriter {
+	return r.response
 }
 
-func (c *Context) RouteKey(name string) types.Key {
-	return types.Key(c.RouteValue(name))
+func (r *rawContext) Request() *http.Request {
+	return r.request
 }
 
-func (c *Context) RouteID(name string) types.ID {
-	id, err := types.NewID(c.RouteValue(name))
+func (r *rawContext) WithRequest(req *http.Request) Context {
+	return &rawContext{
+		request:    req,
+		response:   r.response,
+		params:     r.params,
+		data:       r.data,
+		formParsed: r.formParsed,
+	}
+}
+
+func (r *rawContext) RouteValue(name string) string {
+	return r.params.ByName(name)
+}
+
+func (r *rawContext) RouteKey(name string) types.Key {
+	return types.Key(r.RouteValue(name))
+}
+
+func (r *rawContext) RouteID(name string) types.ID {
+	id, err := types.NewID(r.RouteValue(name))
 	if err != nil {
 		return types.ZeroID
 	}
@@ -37,67 +72,67 @@ func (c *Context) RouteID(name string) types.ID {
 	return id
 }
 
-func (c *Context) Query(name string) string {
-	if c.formParsed {
-		c.Request.ParseForm()
+func (r *rawContext) Query(name string) string {
+	if r.formParsed {
+		r.request.ParseForm()
 	}
 
-	return c.Request.FormValue(name)
+	return r.request.FormValue(name)
 }
 
-func (c *Context) FormValue(name string) string {
-	if c.formParsed {
-		c.Request.ParseForm()
+func (r *rawContext) FormValue(name string) string {
+	if r.formParsed {
+		r.request.ParseForm()
 	}
 
-	return c.Request.PostFormValue(name)
+	return r.request.PostFormValue(name)
 }
 
-func (c *Context) Set(k string, v interface{}) {
-	if c.data == nil {
-		c.data = map[string]interface{}{}
+func (r *rawContext) Set(k string, v interface{}) {
+	if r.data == nil {
+		r.data = map[string]interface{}{}
 	}
-	c.data[k] = v
+	r.data[k] = v
 }
 
-func (c *Context) Get(k string) interface{} {
-	if c.data == nil {
-		c.data = map[string]interface{}{}
+func (r *rawContext) Get(k string) interface{} {
+	if r.data == nil {
+		r.data = map[string]interface{}{}
 	}
 
-	return c.data[k]
+	return r.data[k]
 }
 
-func (c *Context) JSON(status int, in interface{}) error {
-	c.Response.Header().Set("Content-Type", "application/json")
-	c.Response.WriteHeader(status)
-	return json.NewEncoder(c.Response).Encode(in)
+func (r *rawContext) JSON(status int, in interface{}) error {
+	r.response.Header().Set("Content-Type", "application/json")
+	r.response.WriteHeader(status)
+	return json.NewEncoder(r.response).Encode(in)
 }
 
-func (c *Context) XMLBlob(status int, in []byte) error {
-	c.Response.Header().Set("Content-Type", "text/xml")
-	c.Response.WriteHeader(status)
-	_, err := c.Response.Write(in)
+func (r *rawContext) XMLBlob(status int, in []byte) error {
+	r.response.Header().Set("Content-Type", "text/xml")
+	r.response.WriteHeader(status)
+	_, err := r.response.Write(in)
 	return err
 }
 
-func (c *Context) Text(status int, in string) error {
-	c.Response.Header().Set("Content-Type", "text/plain")
-	c.Response.WriteHeader(status)
-	_, err := io.WriteString(c.Response, in)
+func (r *rawContext) Text(status int, in string) error {
+	r.response.Header().Set("Content-Type", "text/plain")
+	r.response.WriteHeader(status)
+	_, err := io.WriteString(r.response, in)
 	return err
 }
 
-func (c *Context) HTML(status int, in string) error {
-	c.Response.Header().Set("Content-Type", "text/html")
-	c.Response.WriteHeader(status)
-	_, err := io.WriteString(c.Response, in)
+func (r *rawContext) HTML(status int, in string) error {
+	r.response.Header().Set("Content-Type", "text/html")
+	r.response.WriteHeader(status)
+	_, err := io.WriteString(r.response, in)
 	return err
 }
 
 // Redirect the browser to a new location; status is typically http.StatusTemporaryRedirect
-func (c *Context) Redirect(status int, location string) error {
-	c.Response.Header().Set("Location", location)
-	c.Response.WriteHeader(status)
+func (r *rawContext) Redirect(status int, location string) error {
+	r.response.Header().Set("Location", location)
+	r.response.WriteHeader(status)
 	return nil
 }

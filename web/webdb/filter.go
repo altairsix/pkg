@@ -15,7 +15,7 @@ type reference struct {
 	db *gorm.DB
 }
 
-func fetch(c *web.Context) (*gorm.DB, bool) {
+func fetch(c web.Context) (*gorm.DB, bool) {
 	if v := c.Get(refKey); v != nil {
 		if ref, ok := v.(*reference); ok {
 			return ref.db, true
@@ -25,7 +25,7 @@ func fetch(c *web.Context) (*gorm.DB, bool) {
 	return nil, false
 }
 
-func Open(c *web.Context) (*gorm.DB, error) {
+func Open(c web.Context) (*gorm.DB, error) {
 	db, ok := fetch(c)
 	if ok {
 		return db, nil
@@ -45,7 +45,7 @@ func Open(c *web.Context) (*gorm.DB, error) {
 
 func Filter(accessor dbase.Accessor) web.Filter {
 	return func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
+		return func(c web.Context) error {
 			c.Set(accessorKey, accessor)
 			err := h(c)
 

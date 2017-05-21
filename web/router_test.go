@@ -3,12 +3,10 @@ package web_test
 import (
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 
 	"github.com/altairsix/pkg/web"
-
-	"path/filepath"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -17,18 +15,18 @@ func TestRouter_Use(t *testing.T) {
 
 	r := web.NewRouter()
 	r.Use(func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
+		return func(c web.Context) error {
 			applied = append(applied, "a")
 			return h(c)
 		}
 	})
 	r.Use(func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
+		return func(c web.Context) error {
 			applied = append(applied, "b")
 			return h(c)
 		}
 	})
-	r.GET("/", func(c *web.Context) error {
+	r.GET("/", func(c web.Context) error {
 		applied = append(applied, "c")
 		return nil
 	})
@@ -46,12 +44,12 @@ func TestFilter_Apply(t *testing.T) {
 	calls := 0
 	r := web.NewRouter()
 	group := r.Group("", func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
+		return func(c web.Context) error {
 			calls++
 			return h(c)
 		}
 	})
-	group.GET("/", func(c *web.Context) error { return c.Text(http.StatusOK, "ok") })
+	group.GET("/", func(c web.Context) error { return c.Text(http.StatusOK, "ok") })
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest(http.MethodGet, "http://localhost/", nil)
@@ -65,7 +63,7 @@ func TestFilter_Prefix(t *testing.T) {
 	group := r.Group("a").Group("b").Group("c")
 
 	calls := 0
-	group.GET("/", func(c *web.Context) error {
+	group.GET("/", func(c web.Context) error {
 		calls++
 		return c.Text(http.StatusOK, "ok")
 	})

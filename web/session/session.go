@@ -105,8 +105,8 @@ func Filter(prototype interface{}, cookieName string, store gorilla.Store, opts 
 	m := newManager(prototype, cookieName, store, opts...)
 
 	return func(h web.HandlerFunc) web.HandlerFunc {
-		return func(c *web.Context) error {
-			c.Request = m.attachSession(c.Request, c.Response)
+		return func(c web.Context) error {
+			c = c.WithRequest(m.attachSession(c.Request(), c.Response()))
 			return h(c)
 		}
 	}

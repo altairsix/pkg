@@ -8,17 +8,17 @@ import (
 )
 
 func WrapHandler(h http.Handler) HandlerFunc {
-	return func(c *Context) error {
-		h.ServeHTTP(c.Response, c.Request)
+	return func(c Context) error {
+		h.ServeHTTP(c.Response(), c.Request())
 		return nil
 	}
 }
 
 func Wrap(h HandlerFunc) httprouter.Handle {
 	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
-		c := &Context{
-			Request:  req,
-			Response: w,
+		c := &rawContext{
+			request:  req,
+			response: w,
 			params:   p,
 		}
 
