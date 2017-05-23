@@ -55,6 +55,7 @@ func Filter(accessor dbase.Accessor) web.Filter {
 				} else {
 					accessor.Commit(db)
 				}
+				accessor.Close(db)
 			}
 
 			return err
