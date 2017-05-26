@@ -86,6 +86,10 @@ func (em Millis) MarshalJSON() ([]byte, error) {
 		"Date":  t.Format("1/2/2006"),
 		"Time":  t.Format(time.Kitchen),
 		"Value": em.Int64(),
+		"date":  t.Format("1/2/2006"),
+		"time":  t.Format(time.Kitchen),
+		"value": em.Int64(),
+		"ago":   (Now() - em).Ago(),
 	}
 
 	return json.Marshal(v)
@@ -141,4 +145,49 @@ func UnixNano(v int64) Millis {
 
 func Time(t time.Time) Millis {
 	return UnixNano(t.UnixNano())
+}
+
+func (em Millis) Ago() string {
+	if em < 0 {
+		return "-"
+	}
+
+	secs := em / 1000
+	if secs < 60 {
+		return "just now"
+	}
+
+	minutes := secs / 60
+	if minutes == 1 {
+		return "1 minute ago"
+	} else if minutes < 60 {
+		return strconv.Itoa(int(minutes)) + " minutes ago"
+	}
+
+	hours := minutes / 60
+	if hours == 1 {
+		return "1 hour ago"
+	} else if hours < 24 {
+		return strconv.Itoa(int(hours)) + " hours ago"
+	}
+
+	days := hours / 24
+	if days == 1 {
+		return "1 day ago"
+	} else if days < 30 {
+		return strconv.Itoa(int(days)) + " days ago"
+	}
+
+	months := days / 30
+	if months == 1 {
+		return "1 month ago"
+	} else if months < 12 {
+		return strconv.Itoa(int(months)) + " months ago"
+	}
+
+	years := months / 12
+	if years == 1 {
+		return "1 year ago"
+	}
+	return strconv.Itoa(int(years)) + " years ago"
 }
