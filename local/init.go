@@ -50,7 +50,7 @@ func init() {
 	}
 
 	env := map[string]string{}
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 8; i++ {
 		dir = filepath.Join(dir, "..")
 		filename := filepath.Join(dir, "test.json")
 		data, err := ioutil.ReadFile(filename)
