@@ -18,10 +18,17 @@ func EnvRegion() string {
 }
 
 // EnvSession returns an AWS session constructed from env variables
-func EnvSession() (*session.Session, error) {
+func EnvSession(endpoint string) (*session.Session, error) {
 	region := EnvRegion()
 
-	cfg := &aws.Config{Region: aws.String(region)}
+	cfg := &aws.Config{
+		Region: aws.String(region),
+	}
+
+	if endpoint != "" {
+		cfg.Endpoint = aws.String(endpoint)
+	}
+
 	s, err := session.NewSession(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "awscloud:env_session:err")
