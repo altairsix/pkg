@@ -86,6 +86,19 @@ func init() {
 	SNS = sns.New(s)
 	SQS = sqs.New(s)
 
+	if v := os.Getenv("DYNAMODB_ENDPOINT"); v != "" {
+		cfg := &aws.Config{
+			Region:   aws.String(region),
+			Endpoint: aws.String(v),
+		}
+		s, err := aws_session.NewSession(cfg)
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		DynamoDB = dynamodb.New(s)
+	}
+
 	// Setup IDFactory
 	//
 	id := time.Now().UnixNano()
