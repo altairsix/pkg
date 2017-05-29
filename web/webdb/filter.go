@@ -50,12 +50,13 @@ func Filter(accessor dbase.Accessor) web.Filter {
 			err := h(c)
 
 			if db, ok := fetch(c); ok {
+				defer accessor.Close(db)
+
 				if err != nil {
 					accessor.Rollback(db)
 				} else {
 					accessor.Commit(db)
 				}
-				accessor.Close(db)
 			}
 
 			return err
