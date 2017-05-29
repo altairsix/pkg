@@ -86,10 +86,7 @@ func (em Millis) MarshalJSON() ([]byte, error) {
 		"Date":  t.Format("1/2/2006"),
 		"Time":  t.Format(time.Kitchen),
 		"Value": em.Int64(),
-		"date":  t.Format("1/2/2006"),
-		"time":  t.Format(time.Kitchen),
-		"value": em.Int64(),
-		"ago":   (Now() - em).Ago(),
+		"Ago":   (Now() - em).Ago(),
 	}
 
 	return json.Marshal(v)
