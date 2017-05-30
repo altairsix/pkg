@@ -56,10 +56,18 @@ func IsRequired(in interface{}) bool {
 		return v != ""
 	case map[string]interface{}:
 		return len(v) > 0
+	case types.StringSet:
+		return len(v) > 0
+	case types.StringArray:
+		return len(v) > 0
 	case types.ID:
 		return v > 0
+	case []types.ID:
+		return len(v) > 0
 	case types.Key:
 		return v != ""
+	case []types.Key:
+		return len(v) > 0
 	}
 	return true
 }
