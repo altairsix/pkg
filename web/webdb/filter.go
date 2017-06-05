@@ -15,7 +15,8 @@ type reference struct {
 	db *gorm.DB
 }
 
-func fetch(c web.Context) (*gorm.DB, bool) {
+// fetchExisting returns the existing db connection if one has already been opened
+func fetchExisting(c web.Context) (*gorm.DB, bool) {
 	if v := c.Get(refKey); v != nil {
 		if ref, ok := v.(*reference); ok {
 			return ref.db, true
@@ -26,7 +27,7 @@ func fetch(c web.Context) (*gorm.DB, bool) {
 }
 
 func Open(c web.Context) (*gorm.DB, error) {
-	db, ok := fetch(c)
+	db, ok := fetchExisting(c)
 	if ok {
 		return db, nil
 	}
@@ -36,6 +37,7 @@ func Open(c web.Context) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db = accessor.Begin(db) // begin a new transaction
 
 	ref := &reference{db: db}
 	c.Set(refKey, ref)
@@ -49,7 +51,7 @@ func Filter(accessor dbase.Accessor) web.Filter {
 			c.Set(accessorKey, accessor)
 			err := h(c)
 
-			if db, ok := fetch(c); ok {
+			if db, ok := fetchExisting(c); ok {
 				defer accessor.Close(db)
 
 				if err != nil {
