@@ -59,57 +59,82 @@ func TestJSON(t *testing.T) {
 func TestAgo(t *testing.T) {
 	testCases := map[string]struct {
 		Duration epoch.Millis
-		Expected string
+		String   string
+		Value    int64
+		Unit     string
 	}{
 		"now": {
 			Duration: 0,
-			Expected: "just now",
+			String:   "moments ago",
 		},
 		"1min": {
 			Duration: epoch.Millis(60 * 1000),
-			Expected: "1 minute ago",
+			String:   "1 minute ago",
+			Value:    1,
+			Unit:     epoch.Minute,
 		},
 		"5min": {
 			Duration: epoch.Millis(5 * 60 * 1000),
-			Expected: "5 minutes ago",
+			String:   "5 minutes ago",
+			Value:    5,
+			Unit:     epoch.Minute,
 		},
 		"1h": {
 			Duration: epoch.Millis(60 * 60 * 1000),
-			Expected: "1 hour ago",
+			String:   "1 hour ago",
+			Value:    1,
+			Unit:     epoch.Hour,
 		},
 		"3h": {
 			Duration: epoch.Millis(3 * 60 * 60 * 1000),
-			Expected: "3 hours ago",
+			String:   "3 hours ago",
+			Value:    3,
+			Unit:     epoch.Hour,
 		},
 		"1d": {
 			Duration: epoch.Millis(24 * 60 * 60 * 1000),
-			Expected: "1 day ago",
+			String:   "1 day ago",
+			Value:    1,
+			Unit:     epoch.Day,
 		},
 		"3d": {
 			Duration: epoch.Millis(3 * 24 * 60 * 60 * 1000),
-			Expected: "3 days ago",
+			String:   "3 days ago",
+			Value:    3,
+			Unit:     epoch.Day,
 		},
-		"1m": {
+		"1mo": {
 			Duration: epoch.Millis(30 * 24 * 60 * 60 * 1000),
-			Expected: "1 month ago",
+			String:   "1 month ago",
+			Value:    1,
+			Unit:     epoch.Month,
 		},
-		"5m": {
+		"5mo": {
 			Duration: epoch.Millis(5 * 30 * 24 * 60 * 60 * 1000),
-			Expected: "5 months ago",
+			String:   "5 months ago",
+			Value:    5,
+			Unit:     epoch.Month,
 		},
 		"1y": {
 			Duration: epoch.Millis(365 * 24 * 60 * 60 * 1000),
-			Expected: "1 year ago",
+			String:   "1 year ago",
+			Value:    1,
+			Unit:     epoch.Year,
 		},
 		"5y": {
 			Duration: epoch.Millis(5 * 365 * 24 * 60 * 60 * 1000),
-			Expected: "5 years ago",
+			String:   "5 years ago",
+			Value:    5,
+			Unit:     epoch.Year,
 		},
 	}
 
 	for label, tc := range testCases {
 		t.Run(label, func(t *testing.T) {
-			assert.Equal(t, tc.Expected, tc.Duration.Ago())
+			ago := tc.Duration.Ago()
+			assert.Equal(t, tc.String, ago.String)
+			assert.Equal(t, tc.Value, ago.Value)
+			assert.Equal(t, tc.Unit, ago.Unit)
 		})
 	}
 }

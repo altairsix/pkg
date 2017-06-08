@@ -18,6 +18,16 @@ const (
 	Scale = int64(time.Millisecond)
 )
 
+const (
+	Second = "sec"
+	Minute = "min"
+	Hour   = "hr"
+	Day    = "day"
+	Week   = "wk"
+	Month  = "mo"
+	Year   = "yr"
+)
+
 var (
 	timeFormats = []string{
 		time.RFC3339,
@@ -144,47 +154,96 @@ func Time(t time.Time) Millis {
 	return UnixNano(t.UnixNano())
 }
 
-func (em Millis) Ago() string {
+type Ago struct {
+	String string
+	Unit   string
+	Value  int64
+}
+
+func (em Millis) Ago() Ago {
 	if em < 0 {
-		return "-"
+		return Ago{String: "-"}
 	}
 
 	secs := em / 1000
 	if secs < 60 {
-		return "just now"
+		return Ago{
+			String: "moments ago",
+		}
 	}
 
 	minutes := secs / 60
 	if minutes == 1 {
-		return "1 minute ago"
+		return Ago{
+			String: "1 minute ago",
+			Value:  1,
+			Unit:   Minute,
+		}
 	} else if minutes < 60 {
-		return strconv.Itoa(int(minutes)) + " minutes ago"
+		return Ago{
+			String: strconv.Itoa(int(minutes)) + " minutes ago",
+			Value:  minutes.Int64(),
+			Unit:   Minute,
+		}
 	}
 
 	hours := minutes / 60
 	if hours == 1 {
-		return "1 hour ago"
+		return Ago{
+			String: "1 hour ago",
+			Value:  1,
+			Unit:   Hour,
+		}
 	} else if hours < 24 {
-		return strconv.Itoa(int(hours)) + " hours ago"
+		return Ago{
+			String: strconv.Itoa(int(hours)) + " hours ago",
+			Value:  hours.Int64(),
+			Unit:   Hour,
+		}
 	}
 
 	days := hours / 24
 	if days == 1 {
-		return "1 day ago"
+		return Ago{
+			String: "1 day ago",
+			Value:  1,
+			Unit:   Day,
+		}
 	} else if days < 30 {
-		return strconv.Itoa(int(days)) + " days ago"
+		return Ago{
+			String: strconv.Itoa(int(days)) + " days ago",
+			Value:  days.Int64(),
+			Unit:   Day,
+		}
 	}
 
 	months := days / 30
 	if months == 1 {
-		return "1 month ago"
+		return Ago{
+			String: "1 month ago",
+			Value:  1,
+			Unit:   Month,
+		}
 	} else if months < 12 {
-		return strconv.Itoa(int(months)) + " months ago"
+		return Ago{
+			String: strconv.Itoa(int(months)) + " months ago",
+			Value:  months.Int64(),
+			Unit:   Month,
+		}
 	}
 
 	years := months / 12
 	if years == 1 {
-		return "1 year ago"
+		return Ago{
+			String: "1 year ago",
+			Value:  1,
+			Unit:   Year,
+		}
 	}
-	return strconv.Itoa(int(years)) + " years ago"
+
+	return Ago{
+		String: strconv.Itoa(int(years)) + " years ago",
+		Value:  years.Int64(),
+		Unit:   Year,
+	}
 }
