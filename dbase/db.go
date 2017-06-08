@@ -9,20 +9,27 @@ import (
 )
 
 type Config struct {
-	Username string
-	Password string
-	Hostname string
-	Port     string
-	Database string
+	Username    string
+	Password    string
+	Hostname    string
+	Port        string
+	Database    string
+	TxIsolation string
 }
 
 func ConnectString(cfg Config) string {
-	return fmt.Sprintf("%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=True&loc=Local",
+	isolation := cfg.TxIsolation
+	if isolation == "" {
+		isolation = "READ-COMMITTED"
+	}
+
+	return fmt.Sprintf(`%v:%v@tcp(%v:%v)/%v?charset=utf8&parseTime=True&loc=Local&tx_isolation="%v"`,
 		cfg.Username,
 		cfg.Password,
 		cfg.Hostname,
 		cfg.Port,
 		cfg.Database,
+		isolation,
 	)
 }
 
