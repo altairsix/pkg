@@ -1,11 +1,16 @@
 package dbase
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
 	"github.com/jinzhu/gorm"
 	_ "github.com/jinzhu/gorm/dialects/mysql"
+)
+
+const (
+	Key = "_db"
 )
 
 type Config struct {
@@ -47,6 +52,7 @@ type Accessor interface {
 	Begin(*gorm.DB) *gorm.DB
 	Commit(*gorm.DB) *gorm.DB
 	Rollback(*gorm.DB) *gorm.DB
+	Tx(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error
 }
 
 type OpenFunc func() (*gorm.DB, error)
@@ -69,6 +75,36 @@ func (fn OpenFunc) Commit(db *gorm.DB) *gorm.DB {
 
 func (fn OpenFunc) Rollback(db *gorm.DB) *gorm.DB {
 	return db.Rollback()
+}
+
+func (fn OpenFunc) Tx(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error {
+	db, err := fn.Open()
+	if err != nil {
+		return err
+	}
+
+	db = db.Begin()
+	ctx = context.WithValue(ctx, Key, db)
+
+	err = callback(ctx, db)
+	if err != nil {
+		db.Rollback()
+		return err
+	}
+
+	db.Commit()
+	return nil
+}
+
+// FromContext retrieves a db instance from a context
+func FromContext(ctx context.Context) (*gorm.DB, bool) {
+	v := ctx.Value(Key)
+	if v == nil {
+		return nil, false
+	}
+
+	db, ok := v.(*gorm.DB)
+	return db, ok
 }
 
 func NewOpenFunc(connectString string) OpenFunc {
