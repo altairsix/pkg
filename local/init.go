@@ -15,6 +15,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	aws_session "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go/service/kms"
 	"github.com/aws/aws-sdk-go/service/sns"
 	"github.com/aws/aws-sdk-go/service/sqs"
 	"github.com/gorilla/securecookie"
@@ -31,6 +32,7 @@ var (
 	DynamoDB *dynamodb.DynamoDB
 	SNS      *sns.SNS
 	SQS      *sqs.SQS
+	KMS      *kms.KMS
 )
 
 var (
@@ -85,6 +87,7 @@ func init() {
 	DynamoDB = dynamodb.New(s)
 	SNS = sns.New(s)
 	SQS = sqs.New(s)
+	KMS = kms.New(s)
 
 	if v := os.Getenv("DYNAMODB_ENDPOINT"); v != "" {
 		cfg := &aws.Config{
