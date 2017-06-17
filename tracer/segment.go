@@ -14,6 +14,10 @@ import (
 
 var DebugEnabled = int64(0)
 
+var (
+	NopSegment *Segment = nil
+)
+
 func SetDebug(enabled bool) {
 	if enabled {
 		atomic.StoreInt64(&DebugEnabled, 1)
@@ -28,6 +32,10 @@ type Segment struct {
 }
 
 func (s *Segment) Finish() {
+	if s == nil {
+		return
+	}
+
 	s.span.FinishWithOptions(opentracing.FinishOptions{
 		FinishTime: time.Now(),
 		LogRecords: s.records,
@@ -35,14 +43,26 @@ func (s *Segment) Finish() {
 }
 
 func (s *Segment) LogFields(fields ...log.Field) {
+	if s == nil {
+		return
+	}
+
 	s.span.LogFields(fields...)
 }
 
 func (s *Segment) SetBaggageItem(key, value string) {
+	if s == nil {
+		return
+	}
+
 	s.span.SetBaggageItem(key, value)
 }
 
 func (s *Segment) Info(msg string, fields ...log.Field) {
+	if s == nil {
+		return
+	}
+
 	if s.records == nil {
 		s.records = make([]opentracing.LogRecord, 0, 8)
 	}
@@ -54,6 +74,10 @@ func (s *Segment) Info(msg string, fields ...log.Field) {
 }
 
 func (s *Segment) Debug(msg string, fields ...log.Field) {
+	if s == nil {
+		return
+	}
+
 	if DebugEnabled != 0 {
 		return
 	}
