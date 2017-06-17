@@ -15,7 +15,7 @@ import (
 var DebugEnabled = int64(0)
 
 var (
-	NopSegment *Segment = nil
+	NopSegment Segment = nopSegment{}
 )
 
 func SetDebug(enabled bool) {
@@ -26,12 +26,20 @@ func SetDebug(enabled bool) {
 	}
 }
 
-type Segment struct {
+type Segment interface {
+	Finish()
+	LogFields(fields ...log.Field)
+	SetBaggageItem(key, value string)
+	Info(msg string, fields ...log.Field)
+	Debug(msg string, fields ...log.Field)
+}
+
+type segment struct {
 	span    opentracing.Span
 	records []opentracing.LogRecord
 }
 
-func (s *Segment) Finish() {
+func (s *segment) Finish() {
 	if s == nil {
 		return
 	}
@@ -42,7 +50,7 @@ func (s *Segment) Finish() {
 	})
 }
 
-func (s *Segment) LogFields(fields ...log.Field) {
+func (s *segment) LogFields(fields ...log.Field) {
 	if s == nil {
 		return
 	}
@@ -50,7 +58,7 @@ func (s *Segment) LogFields(fields ...log.Field) {
 	s.span.LogFields(fields...)
 }
 
-func (s *Segment) SetBaggageItem(key, value string) {
+func (s *segment) SetBaggageItem(key, value string) {
 	if s == nil {
 		return
 	}
@@ -58,7 +66,7 @@ func (s *Segment) SetBaggageItem(key, value string) {
 	s.span.SetBaggageItem(key, value)
 }
 
-func (s *Segment) Info(msg string, fields ...log.Field) {
+func (s *segment) Info(msg string, fields ...log.Field) {
 	if s == nil {
 		return
 	}
@@ -73,7 +81,7 @@ func (s *Segment) Info(msg string, fields ...log.Field) {
 	})
 }
 
-func (s *Segment) Debug(msg string, fields ...log.Field) {
+func (s *segment) Debug(msg string, fields ...log.Field) {
 	if s == nil {
 		return
 	}
@@ -97,8 +105,16 @@ func Caller(key string, skip int) log.Field {
 	return log.String(key, filepath.Base(filepath.Dir(file))+"/"+filepath.Base(file)+":"+strconv.Itoa(line))
 }
 
-func NewSegment(ctx context.Context, operationName string, fields ...log.Field) (*Segment, context.Context) {
+func NewSegment(ctx context.Context, operationName string, fields ...log.Field) (Segment, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName)
 	span.LogFields(fields...)
-	return &Segment{span: span}, ctx
+	return &segment{span: span}, ctx
 }
+
+type nopSegment struct{}
+
+func (nopSegment) Finish()                               {}
+func (nopSegment) LogFields(fields ...log.Field)         {}
+func (nopSegment) SetBaggageItem(key, value string)      {}
+func (nopSegment) Info(msg string, fields ...log.Field)  {}
+func (nopSegment) Debug(msg string, fields ...log.Field) {}
