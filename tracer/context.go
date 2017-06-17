@@ -5,11 +5,22 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 )
+
+var DebugEnabled = int64(0)
+
+func SetDebug(enabled bool) {
+	if enabled {
+		atomic.StoreInt64(&DebugEnabled, 1)
+	} else {
+		atomic.StoreInt64(&DebugEnabled, 0)
+	}
+}
 
 type Logger struct {
 	span    opentracing.Span
@@ -32,6 +43,21 @@ func (l *Logger) SetBaggageItem(key, value string) {
 }
 
 func (l *Logger) Info(msg string, fields ...log.Field) {
+	if l.records == nil {
+		l.records = make([]opentracing.LogRecord, 0, 8)
+	}
+
+	l.records = append(l.records, opentracing.LogRecord{
+		Timestamp: time.Now(),
+		Fields:    append(fields, log.String(MessageKey, msg), Caller(CallerKey, 2)),
+	})
+}
+
+func (l *Logger) Debug(msg string, fields ...log.Field) {
+	if DebugEnabled != 0 {
+		return
+	}
+
 	if l.records == nil {
 		l.records = make([]opentracing.LogRecord, 0, 8)
 	}
