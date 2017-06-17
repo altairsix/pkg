@@ -73,7 +73,7 @@ func Caller(key string, skip int) log.Field {
 	return log.String(key, filepath.Base(filepath.Dir(file))+"/"+filepath.Base(file)+":"+strconv.Itoa(line))
 }
 
-func StartSpan(ctx context.Context, operationName string, fields ...log.Field) (*Segment, context.Context) {
+func NewSegment(ctx context.Context, operationName string, fields ...log.Field) (*Segment, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName)
 	span.LogFields(fields...)
 	return &Segment{span: span}, ctx

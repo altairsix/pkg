@@ -11,10 +11,10 @@ import (
 
 func TestStartLogger(t *testing.T) {
 	func() {
-		span, _ := tracer.StartSpan(context.Background(), "StartLogger")
-		defer span.Finish()
+		segment, _ := tracer.NewSegment(context.Background(), "StartLogger")
+		defer segment.Finish()
 
-		span.Info("hello", log.String("key", "value"))
+		segment.Info("hello", log.String("key", "value"))
 	}()
 
 	time.Sleep(time.Millisecond * 150)
