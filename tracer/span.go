@@ -4,14 +4,13 @@ import (
 	"sync"
 	"time"
 
-	"fmt"
-
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 )
 
 type Span struct {
 	sync.Mutex
+	emitter       Emitter
 	operationName string
 	tracer        *Tracer
 	fields        map[string]log.Field
@@ -21,12 +20,29 @@ type Span struct {
 }
 
 func (s *Span) clone() *Span {
+	var fields map[string]log.Field
+	if s.fields != nil {
+		fields = make(map[string]log.Field, len(s.fields))
+		for k, v := range s.fields {
+			fields[k] = v
+		}
+	}
+
+	var baggage map[string]string
+	if s.baggage != nil {
+		baggage = make(map[string]string, len(s.baggage))
+		for k, v := range baggage {
+			baggage[k] = v
+		}
+	}
+
 	return &Span{
+		emitter:       s.emitter,
 		operationName: s.operationName,
 		tracer:        s.tracer,
-		fields:        s.fields,
-		startedAt:     s.startedAt,
-		baggage:       s.baggage,
+		fields:        fields,
+		startedAt:     time.Now(),
+		baggage:       baggage,
 	}
 }
 
@@ -44,7 +60,7 @@ func (s *Span) Finish() {
 // FinishWithOptions is like Finish() but with explicit control over
 // timestamps and log data.
 func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
-	fmt.Printf("FinishWithOptions %#v\n", opts)
+	s.emitter.Emit(s, opts)
 }
 
 // Context() yields the SpanContext for this Span. Note that the return
@@ -91,6 +107,9 @@ func (s *Span) SetTag(key string, value interface{}) opentracing.Span {
 //
 // Also see Span.FinishWithOptions() and FinishOptions.BulkLogData.
 func (s *Span) LogFields(fields ...log.Field) {
+	s.Lock()
+	defer s.Unlock()
+
 	if s.fields == nil {
 		s.fields = map[string]log.Field{}
 	}
@@ -146,7 +165,12 @@ func (s *Span) SetBaggageItem(restrictedKey, value string) opentracing.Span {
 	s.Lock()
 	defer s.Unlock()
 
-	return nil
+	if s.baggage == nil {
+		s.baggage = map[string]string{}
+	}
+
+	s.baggage[restrictedKey] = value
+	return s
 }
 
 // Gets the value for a baggage item given its key. Returns the empty string
@@ -159,13 +183,7 @@ func (s *Span) BaggageItem(restrictedKey string) string {
 		return ""
 	}
 
-	for k, v := range s.baggage {
-		if k == restrictedKey {
-			return v
-		}
-	}
-
-	return ""
+	return s.baggage[restrictedKey]
 }
 
 // Provides access to the Tracer that created this Span.
@@ -203,6 +221,18 @@ func (s *Span) ForeachBaggageItem(handler func(k, v string) bool) {
 	}
 
 	for k, v := range s.baggage {
+		if ok := handler(k, v); !ok {
+			return
+		}
+	}
+}
+
+func (s *Span) ForeachField(handler func(k string, f log.Field) bool) {
+	if s.fields == nil {
+		return
+	}
+
+	for k, v := range s.fields {
 		if ok := handler(k, v); !ok {
 			return
 		}

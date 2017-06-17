@@ -9,13 +9,17 @@ import (
 	"github.com/opentracing/opentracing-go/log"
 )
 
-func TestCompiles(t *testing.T) {
-	opentracing.InitGlobalTracer(&tracer.Tracer{})
+func init() {
+	opentracing.InitGlobalTracer(tracer.DefaultTracer)
+}
+
+func TestTracer(t *testing.T) {
 	root := context.Background()
 
 	parentSpan, parentCtx := opentracing.StartSpanFromContext(root, "op")
 	defer parentSpan.Finish()
 
+	parentSpan.SetBaggageItem("argle", "bargle")
 	parentSpan.LogFields(log.String("a", "b"))
 
 	childSpan, _ := opentracing.StartSpanFromContext(parentCtx, "op")

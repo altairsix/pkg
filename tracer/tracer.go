@@ -4,9 +4,36 @@ import (
 	"time"
 
 	"github.com/opentracing/opentracing-go"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
+var DefaultTracer opentracing.Tracer
+
+func init() {
+	config := zap.NewProductionConfig()
+	config.DisableCaller = true
+	config.EncoderConfig.LevelKey = ""
+	config.EncoderConfig.MessageKey = "event"
+	config.EncoderConfig.TimeKey = "timestamp"
+	config.EncoderConfig.EncodeTime = func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
+		encoder.AppendString(t.Format(time.RFC3339))
+	}
+	config.OutputPaths = []string{"stdout"}
+
+	logger, _ := config.Build()
+	emitter := &ZapEmitter{Logger: logger}
+	DefaultTracer = New(emitter)
+}
+
 type Tracer struct {
+	emitter Emitter
+}
+
+func New(emitter Emitter) *Tracer {
+	return &Tracer{
+		emitter: emitter,
+	}
 }
 
 // Create, start, and return a new Span with the given `operationName` and
@@ -47,9 +74,23 @@ func (t *Tracer) StartSpan(operationName string, opts ...opentracing.StartSpanOp
 		options.StartTime = time.Now()
 	}
 
+	baggage := map[string]string{}
+	if options.References != nil {
+		for _, ref := range options.References {
+			if ref.ReferencedContext != nil {
+				ref.ReferencedContext.ForeachBaggageItem(func(k, v string) bool {
+					baggage[k] = v
+					return true
+				})
+			}
+		}
+	}
+
 	return &Span{
+		emitter:       t.emitter,
 		operationName: operationName,
 		startedAt:     options.StartTime,
+		baggage:       baggage,
 	}
 }
 
