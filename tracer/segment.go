@@ -22,47 +22,47 @@ func SetDebug(enabled bool) {
 	}
 }
 
-type Logger struct {
+type Segment struct {
 	span    opentracing.Span
 	records []opentracing.LogRecord
 }
 
-func (l *Logger) Finish() {
-	l.span.FinishWithOptions(opentracing.FinishOptions{
+func (s *Segment) Finish() {
+	s.span.FinishWithOptions(opentracing.FinishOptions{
 		FinishTime: time.Now(),
-		LogRecords: l.records,
+		LogRecords: s.records,
 	})
 }
 
-func (l *Logger) LogFields(fields ...log.Field) {
-	l.span.LogFields(fields...)
+func (s *Segment) LogFields(fields ...log.Field) {
+	s.span.LogFields(fields...)
 }
 
-func (l *Logger) SetBaggageItem(key, value string) {
-	l.span.SetBaggageItem(key, value)
+func (s *Segment) SetBaggageItem(key, value string) {
+	s.span.SetBaggageItem(key, value)
 }
 
-func (l *Logger) Info(msg string, fields ...log.Field) {
-	if l.records == nil {
-		l.records = make([]opentracing.LogRecord, 0, 8)
+func (s *Segment) Info(msg string, fields ...log.Field) {
+	if s.records == nil {
+		s.records = make([]opentracing.LogRecord, 0, 8)
 	}
 
-	l.records = append(l.records, opentracing.LogRecord{
+	s.records = append(s.records, opentracing.LogRecord{
 		Timestamp: time.Now(),
 		Fields:    append(fields, log.String(MessageKey, msg), Caller(CallerKey, 2)),
 	})
 }
 
-func (l *Logger) Debug(msg string, fields ...log.Field) {
+func (s *Segment) Debug(msg string, fields ...log.Field) {
 	if DebugEnabled != 0 {
 		return
 	}
 
-	if l.records == nil {
-		l.records = make([]opentracing.LogRecord, 0, 8)
+	if s.records == nil {
+		s.records = make([]opentracing.LogRecord, 0, 8)
 	}
 
-	l.records = append(l.records, opentracing.LogRecord{
+	s.records = append(s.records, opentracing.LogRecord{
 		Timestamp: time.Now(),
 		Fields:    append(fields, log.String(MessageKey, msg), Caller(CallerKey, 2)),
 	})
@@ -73,8 +73,8 @@ func Caller(key string, skip int) log.Field {
 	return log.String(key, filepath.Base(filepath.Dir(file))+"/"+filepath.Base(file)+":"+strconv.Itoa(line))
 }
 
-func StartSpan(ctx context.Context, operationName string, fields ...log.Field) (*Logger, context.Context) {
+func StartSpan(ctx context.Context, operationName string, fields ...log.Field) (*Segment, context.Context) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, operationName)
 	span.LogFields(fields...)
-	return &Logger{span: span}, ctx
+	return &Segment{span: span}, ctx
 }
