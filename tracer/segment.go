@@ -111,6 +111,12 @@ func NewSegment(ctx context.Context, operationName string, fields ...log.Field) 
 	return &segment{span: span}, ctx
 }
 
+// SegmentFromContext returns an existing segment from the context
+func SegmentFromContext(ctx context.Context) Segment {
+	span := opentracing.SpanFromContext(ctx)
+	return &segment{span: span}
+}
+
 type nopSegment struct{}
 
 func (nopSegment) Finish()                               {}
