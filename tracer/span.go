@@ -66,7 +66,8 @@ func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
 		}
 	}
 
-	s.emitter.Emit(s, s.operationName)
+	elapsed := time.Now().Sub(s.startedAt) / time.Millisecond
+	s.emitter.Emit(s, s.operationName, log.Int64("elapsed", int64(elapsed)))
 }
 
 // Context() yields the SpanContext for this Span. Note that the return
