@@ -26,6 +26,11 @@ func SetDebug(enabled bool) {
 	}
 }
 
+type logger interface {
+	Info(msg string, fields ...log.Field)
+	Debug(msg string, fields ...log.Field)
+}
+
 type Segment interface {
 	Finish()
 	LogFields(fields ...log.Field)
@@ -71,14 +76,9 @@ func (s *segment) Info(msg string, fields ...log.Field) {
 		return
 	}
 
-	if s.records == nil {
-		s.records = make([]opentracing.LogRecord, 0, 8)
+	if v, ok := s.span.(logger); ok {
+		v.Info(msg, fields...)
 	}
-
-	s.records = append(s.records, opentracing.LogRecord{
-		Timestamp: time.Now(),
-		Fields:    append(fields, log.String(MessageKey, msg), Caller(CallerKey, 2)),
-	})
 }
 
 func (s *segment) Debug(msg string, fields ...log.Field) {
@@ -86,18 +86,9 @@ func (s *segment) Debug(msg string, fields ...log.Field) {
 		return
 	}
 
-	if DebugEnabled != 0 {
-		return
+	if v, ok := s.span.(logger); ok {
+		v.Debug(msg, fields...)
 	}
-
-	if s.records == nil {
-		s.records = make([]opentracing.LogRecord, 0, 8)
-	}
-
-	s.records = append(s.records, opentracing.LogRecord{
-		Timestamp: time.Now(),
-		Fields:    append(fields, log.String(MessageKey, msg), Caller(CallerKey, 2)),
-	})
 }
 
 func Caller(key string, skip int) log.Field {

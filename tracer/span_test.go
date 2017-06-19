@@ -27,3 +27,15 @@ func TestTracer(t *testing.T) {
 
 	childSpan.LogFields(log.String("hello", "world"))
 }
+
+func TestSpanFromContext(t *testing.T) {
+	root := context.Background()
+	parentSpan, ctx := opentracing.StartSpanFromContext(root, "parent")
+	parentSpan.LogFields(log.String("shared", "item"))
+	parentSpan.SetBaggageItem("baggage", "true")
+	defer parentSpan.Finish()
+
+	segment := tracer.SegmentFromContext(ctx)
+
+	segment.Info("info", log.String("hello", "world"))
+}

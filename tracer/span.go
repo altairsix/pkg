@@ -60,7 +60,13 @@ func (s *Span) Finish() {
 // FinishWithOptions is like Finish() but with explicit control over
 // timestamps and log data.
 func (s *Span) FinishWithOptions(opts opentracing.FinishOptions) {
-	s.emitter.Emit(s, opts)
+	if opts.LogRecords != nil {
+		for _, record := range opts.LogRecords {
+			s.emitter.Emit(s, "", record.Fields...)
+		}
+	}
+
+	s.emitter.Emit(s, s.operationName)
 }
 
 // Context() yields the SpanContext for this Span. Note that the return
@@ -237,4 +243,14 @@ func (s *Span) ForeachField(handler func(k string, f log.Field) bool) {
 			return
 		}
 	}
+}
+
+// Info allows the Span to log at arbitrary times
+func (s *Span) Info(msg string, fields ...log.Field) {
+	s.emitter.Emit(s, msg, fields...)
+}
+
+// Debug allows the Span to log at arbitrary times
+func (s *Span) Debug(msg string, fields ...log.Field) {
+	s.emitter.Emit(s, msg, fields...)
 }

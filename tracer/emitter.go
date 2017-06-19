@@ -1,38 +1,21 @@
 package tracer
 
 import (
-	"time"
-
-	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	MessageKey = "event"
-	CallerKey  = "caller"
-)
-
 type Emitter interface {
-	Emit(span *Span, opts opentracing.FinishOptions)
+	Emit(span *Span, event string, fields ...log.Field)
 }
 
 type ZapEmitter struct {
-	Logger *zap.Logger
+	Logger      *zap.Logger
+	SkipCallers int
 }
 
-func (z *ZapEmitter) Emit(span *Span, opts opentracing.FinishOptions) {
-	if opts.LogRecords != nil {
-		for _, record := range opts.LogRecords {
-			encoder := &Encoder{MessageKey: MessageKey}
-			for _, field := range record.Fields {
-				field.Marshal(encoder)
-			}
-			z.Logger.Info(encoder.Message, encoder.Fields...)
-		}
-	}
-
+func (z *ZapEmitter) Emit(span *Span, msg string, fields ...log.Field) {
 	encoder := &Encoder{}
 
 	span.ForeachBaggageItem(func(k, v string) bool {
@@ -43,24 +26,20 @@ func (z *ZapEmitter) Emit(span *Span, opts opentracing.FinishOptions) {
 		f.Marshal(encoder)
 		return true
 	})
+	for _, f := range fields {
+		f.Marshal(encoder)
+	}
 
-	Caller(CallerKey, 4).Marshal(encoder)
+	Caller("caller", z.SkipCallers).Marshal(encoder)
 
-	encoder.EmitInt64("elapsed", int64(time.Now().Sub(span.startedAt)/time.Millisecond))
-	z.Logger.Info(span.operationName, encoder.Fields...)
+	z.Logger.Info(msg, encoder.Fields...)
 }
 
 type Encoder struct {
-	MessageKey string
-	Message    string
-	Fields     []zapcore.Field
+	Fields []zapcore.Field
 }
 
 func (e *Encoder) EmitString(key, value string) {
-	if key == e.MessageKey {
-		e.Message = value
-		return
-	}
 	e.Fields = append(e.Fields, zap.String(key, value))
 }
 

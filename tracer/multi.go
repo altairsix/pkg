@@ -11,10 +11,11 @@ type multiSpan struct {
 }
 
 func (m *multiSpan) Map(fn func(span opentracing.Span) opentracing.Span) opentracing.Span {
-	spans := make([]opentracing.Span, len(m.spans))
-	for index, span := range spans {
-		spans[index] = fn(span)
+	spans := make([]opentracing.Span, 0, len(m.spans))
+	for _, span := range spans {
+		spans = append(spans, span)
 	}
+
 	return &multiSpan{
 		tracer: m.tracer,
 		spans:  spans,
@@ -38,7 +39,10 @@ func (m *multiSpan) FinishWithOptions(opts opentracing.FinishOptions) {
 }
 
 func (m *multiSpan) Context() opentracing.SpanContext {
-	return m.spans[0].Context()
+	for _, span := range m.spans {
+		return span.Context()
+	}
+	panic("No underlying SpanContext")
 }
 
 func (m *multiSpan) SetOperationName(operationName string) opentracing.Span {
@@ -72,7 +76,10 @@ func (m *multiSpan) SetBaggageItem(restrictedKey, value string) opentracing.Span
 }
 
 func (m *multiSpan) BaggageItem(restrictedKey string) string {
-	return m.spans[0].BaggageItem(restrictedKey)
+	for _, span := range m.spans {
+		return span.BaggageItem(restrictedKey)
+	}
+	return ""
 }
 
 func (m *multiSpan) Tracer() opentracing.Tracer {
@@ -97,6 +104,22 @@ func (m *multiSpan) LogEventWithPayload(event string, payload interface{}) {
 func (m *multiSpan) Log(data opentracing.LogData) {
 	for _, span := range m.spans {
 		span.Log(data)
+	}
+}
+
+func (m *multiSpan) Info(msg string, fields ...log.Field) {
+	for _, span := range m.spans {
+		if v, ok := span.(logger); ok {
+			v.Info(msg, fields...)
+		}
+	}
+}
+
+func (m *multiSpan) Debug(msg string, fields ...log.Field) {
+	for _, span := range m.spans {
+		if v, ok := span.(logger); ok {
+			v.Debug(msg, fields...)
+		}
 	}
 }
 
@@ -127,8 +150,5 @@ func (m *multiTracer) Extract(format interface{}, carrier interface{}) (opentrac
 }
 
 func Multi(tracers ...opentracing.Tracer) opentracing.Tracer {
-	if len(tracers) == 0 {
-		panic("tracer.Multi requires at least one tracer")
-	}
 	return &multiTracer{tracers: tracers}
 }

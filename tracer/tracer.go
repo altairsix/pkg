@@ -21,8 +21,11 @@ func init() {
 	}
 	config.OutputPaths = []string{"stdout"}
 
-	logger, _ := config.Build()
-	emitter := &ZapEmitter{Logger: logger}
+	l, _ := config.Build()
+	emitter := &ZapEmitter{
+		Logger:      l,
+		SkipCallers: 4,
+	}
 	DefaultTracer = New(emitter)
 }
 
