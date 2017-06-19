@@ -45,7 +45,7 @@ type segment struct {
 }
 
 func (s *segment) Finish() {
-	if s == nil {
+	if s == nil || s.span == nil {
 		return
 	}
 
@@ -56,7 +56,7 @@ func (s *segment) Finish() {
 }
 
 func (s *segment) LogFields(fields ...log.Field) {
-	if s == nil {
+	if s == nil || s.span == nil {
 		return
 	}
 
@@ -64,7 +64,7 @@ func (s *segment) LogFields(fields ...log.Field) {
 }
 
 func (s *segment) SetBaggageItem(key, value string) {
-	if s == nil {
+	if s == nil || s.span == nil {
 		return
 	}
 
@@ -72,7 +72,7 @@ func (s *segment) SetBaggageItem(key, value string) {
 }
 
 func (s *segment) Info(msg string, fields ...log.Field) {
-	if s == nil {
+	if s == nil || s.span == nil {
 		return
 	}
 
@@ -82,7 +82,7 @@ func (s *segment) Info(msg string, fields ...log.Field) {
 }
 
 func (s *segment) Debug(msg string, fields ...log.Field) {
-	if s == nil {
+	if s == nil || s.span == nil {
 		return
 	}
 
