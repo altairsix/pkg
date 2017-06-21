@@ -150,6 +150,10 @@ func UnixNano(v int64) Millis {
 	return Millis(v / Scale)
 }
 
+func Duration(d time.Duration) Millis {
+	return Millis(d / time.Millisecond)
+}
+
 func Time(t time.Time) Millis {
 	return UnixNano(t.UnixNano())
 }

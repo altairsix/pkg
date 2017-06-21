@@ -56,6 +56,32 @@ func TestJSON(t *testing.T) {
 	})
 }
 
+func TestDuration(t *testing.T) {
+	testCases := map[string]struct {
+		In       time.Duration
+		Expected epoch.Millis
+	}{
+		"1ms": {
+			In:       time.Millisecond,
+			Expected: 1,
+		},
+		"20ms": {
+			In:       time.Millisecond * 20,
+			Expected: 20,
+		},
+		"1min": {
+			In:       time.Minute,
+			Expected: 1000 * 60,
+		},
+	}
+
+	for label, tc := range testCases {
+		t.Run(label, func(t *testing.T) {
+			assert.Equal(t, tc.Expected, epoch.Duration(tc.In))
+		})
+	}
+}
+
 func TestAgo(t *testing.T) {
 	testCases := map[string]struct {
 		Duration epoch.Millis
