@@ -3,3 +3,7 @@
 *.iml
 *.ipr
 *.iws
+
+# ignore sample content
+# 
+/test.json
