@@ -120,6 +120,7 @@ type Mock struct {
 	BeginCount    int
 	CommitCount   int
 	RollbackCount int
+	TxCount       int
 }
 
 func (m *Mock) Open() (*gorm.DB, error) {
@@ -145,4 +146,9 @@ func (m *Mock) Commit(db *gorm.DB) *gorm.DB {
 func (m *Mock) Rollback(db *gorm.DB) *gorm.DB {
 	m.RollbackCount++
 	return m.DB
+}
+
+func (m *Mock) Tx(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error {
+	m.TxCount++
+	return callback(ctx, m.DB)
 }
