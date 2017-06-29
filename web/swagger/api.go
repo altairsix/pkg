@@ -2,6 +2,7 @@ package swagger
 
 import (
 	"github.com/altairsix/pkg/web"
+	"github.com/savaki/swag"
 	"github.com/savaki/swag/endpoint"
 	"github.com/savaki/swag/swagger"
 )
@@ -81,11 +82,13 @@ func Tags(tags ...string) web.Option {
 }
 
 type API struct {
-	Endpoints []*swagger.Endpoint
+	Swagger *swagger.API
 }
 
-func New() *API {
-	return &API{}
+func New(opts ...swag.Option) *API {
+	return &API{
+		Swagger: swag.New(opts...),
+	}
 }
 
 func (a *API) On(method, path string, webOpts ...web.Option) {
@@ -115,5 +118,7 @@ func (a *API) On(method, path string, webOpts ...web.Option) {
 		}
 	}
 
-	a.Endpoints = append(a.Endpoints, endpoint.New(method, FixPath(path), summary, options...))
+	options = append(options, pathOptions(path, webOpts...)...)
+
+	a.Swagger.AddEndpoint(endpoint.New(method, fixPath(path), summary, options...))
 }
