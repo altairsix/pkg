@@ -29,16 +29,35 @@ func (f Filters) Apply(h HandlerFunc) HandlerFunc {
 	return h
 }
 
+type Option interface{}
+
+type Observer interface {
+	On(method, path string, opts ...Option)
+}
+
+type nopObserver struct{}
+
+func (n nopObserver) On(method, path string, opts ...Option) {}
+
 type Router struct {
-	target  *httprouter.Router
-	prefix  string
-	filters Filters
+	target   *httprouter.Router
+	prefix   string
+	filters  Filters
+	observer Observer
 }
 
 func NewRouter() *Router {
 	return &Router{
-		target: httprouter.New(),
+		target:   httprouter.New(),
+		observer: nopObserver{},
 	}
+}
+
+func (r *Router) WithObserver(observer Observer) *Router {
+	if observer != nil {
+		r.observer = observer
+	}
+	return r
 }
 
 func (r *Router) Use(filters ...Filter) {
@@ -53,34 +72,37 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.target.ServeHTTP(w, req)
 }
 
-func (r *Router) Handle(method, path string, h HandlerFunc) {
+func (r *Router) Handle(method, path string, h HandlerFunc, opts ...Option) {
 	path = filepath.Join(r.prefix, swag.ColonPath(path))
+	method = strings.ToUpper(method)
 	h = r.filters.Apply(h)
-	r.target.Handle(strings.ToUpper(method), path, Wrap(h))
+
+	r.observer.On(method, path, opts...)
+	r.target.Handle(method, path, Wrap(h))
 }
 
-func (r *Router) GET(path string, h HandlerFunc) {
-	r.Handle("GET", path, h)
+func (r *Router) GET(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("GET", path, h, opts...)
 }
 
-func (r *Router) POST(path string, h HandlerFunc) {
-	r.Handle("POST", path, h)
+func (r *Router) POST(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("POST", path, h, opts...)
 }
 
-func (r *Router) DELETE(path string, h HandlerFunc) {
-	r.Handle("DELETE", path, h)
+func (r *Router) DELETE(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("DELETE", path, h, opts...)
 }
 
-func (r *Router) PUT(path string, h HandlerFunc) {
-	r.Handle("PUT", path, h)
+func (r *Router) PUT(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("PUT", path, h, opts...)
 }
 
-func (r *Router) OPTION(path string, h HandlerFunc) {
-	r.Handle("OPTION", path, h)
+func (r *Router) OPTION(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("OPTION", path, h, opts...)
 }
 
-func (r *Router) HEAD(path string, h HandlerFunc) {
-	r.Handle("HEAD", path, h)
+func (r *Router) HEAD(path string, h HandlerFunc, opts ...Option) {
+	r.Handle("HEAD", path, h, opts...)
 }
 
 func (r *Router) Group(prefix string, filters ...Filter) *Router {
@@ -90,9 +112,10 @@ func (r *Router) Group(prefix string, filters ...Filter) *Router {
 	}
 
 	return &Router{
-		target:  r.target,
-		prefix:  joined,
-		filters: append(r.filters, filters...),
+		target:   r.target,
+		prefix:   joined,
+		filters:  append(r.filters, filters...),
+		observer: r.observer,
 	}
 }
 
