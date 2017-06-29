@@ -37,7 +37,9 @@ func OpenContext(ctx context.Context) (*gorm.DB, error) {
 		if err != nil {
 			return nil, err
 		}
+		db = ref.accessor.Begin(db)
 		ref.db = db
+
 	}
 
 	return ref.db, nil
