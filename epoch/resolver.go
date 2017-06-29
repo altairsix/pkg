@@ -7,7 +7,7 @@ import "time"
 //	type Epoch {
 //		date: String!
 //		time: String!
-//		value: Int!
+//		secs: Int!
 //		ago: String!
 //	}
 type Resolver struct {
@@ -22,8 +22,8 @@ func (r *Resolver) Time() string {
 	return r.em.Format(time.Kitchen)
 }
 
-func (r *Resolver) Value() int64 {
-	return r.em.Int64()
+func (r *Resolver) Secs() int32 {
+	return int32(r.em.Int64() / 1000)
 }
 
 func (r *Resolver) Ago() string {
