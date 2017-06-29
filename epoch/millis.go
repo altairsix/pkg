@@ -39,6 +39,19 @@ func Now() Millis {
 	return Time(time.Now())
 }
 
+// Resolver provides a resolver usable by github.com/neelance/graphql-go
+//
+//	type Epoch {
+//		date: String!
+//		time: String!
+//		secs: Int!
+//		ago: String!
+//	}
+//
+func (em Millis) Resolver() *Resolver {
+	return &Resolver{em: em}
+}
+
 func (em Millis) Add(d time.Duration) Millis {
 	return em + Millis(d/time.Millisecond)
 }
