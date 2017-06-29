@@ -58,6 +58,11 @@ func (em Millis) AttributeValue() *dynamodb.AttributeValue {
 	}
 }
 
+// Resolver returns a github.com/neelance/graphql-go Resolver
+func (em Millis) Resolver() *Resolver {
+	return &Resolver{em: em}
+}
+
 func (em Millis) Value() (driver.Value, error) {
 	if em == 0 {
 		return nil, nil
