@@ -1,11 +1,11 @@
-package natz_test
+package natsx_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/altairsix/pkg/natz"
+	"github.com/altairsix/pkg/natsx"
 	"github.com/nats-io/go-nats"
 	"github.com/savaki/randx"
 )
@@ -21,12 +21,12 @@ func TestAsSingleton(t *testing.T) {
 
 	// Setup Action 1
 	//
-	done1, fn1 := natz.Singleton(nc, subject, interval, nopFunc())
+	done1, fn1 := natsx.Singleton(nc, subject, interval, nopFunc())
 	go fn1(ctx)
 
 	// Setup Action 2
 	//
-	done2, fn2 := natz.Singleton(nc, subject, interval, nopFunc())
+	done2, fn2 := natsx.Singleton(nc, subject, interval, nopFunc())
 	go fn2(ctx)
 
 	// Give nats time to fight it out

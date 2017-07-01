@@ -1,11 +1,11 @@
-package natz_test
+package natsx_test
 
 import (
 	"context"
 	"testing"
 	"time"
 
-	"github.com/altairsix/pkg/natz"
+	"github.com/altairsix/pkg/natsx"
 	"github.com/altairsix/pkg/types"
 	"github.com/nats-io/go-nats"
 	"github.com/stretchr/testify/assert"
@@ -26,10 +26,10 @@ func TestAggregates(t *testing.T) {
 	defer close(received)
 
 	// Given a subscriber to the aggregate
-	natz.SubscribeAggregate(ctx, nc, env, bc, func(id types.Key) { received <- id })
+	natsx.SubscribeAggregate(ctx, nc, env, bc, func(id types.Key) { received <- id })
 
 	// When aggregate sync requested
-	fn := natz.SyncAggregate(nc, "local", bc, time.Second)
+	fn := natsx.SyncAggregate(nc, "local", bc, time.Second)
 	fn(ctx, key)
 
 	// Then subscriber processed the request

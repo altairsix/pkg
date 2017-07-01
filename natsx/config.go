@@ -1,4 +1,4 @@
-package natz
+package natsx
 
 import (
 	"fmt"

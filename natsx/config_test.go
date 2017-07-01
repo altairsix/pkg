@@ -1,9 +1,9 @@
-package natz_test
+package natsx_test
 
 import (
 	"testing"
 
-	"github.com/altairsix/pkg/natz"
+	"github.com/altairsix/pkg/natsx"
 	"github.com/nats-io/go-nats"
 	"github.com/stretchr/testify/assert"
 )
@@ -43,7 +43,7 @@ func TestUrl(t *testing.T) {
 
 	for label, tc := range testCases {
 		t.Run(label, func(t *testing.T) {
-			assert.Equal(t, tc.Expected, natz.Url(natz.Config{
+			assert.Equal(t, tc.Expected, natsx.Url(natsx.Config{
 				Url:      tc.Url,
 				Username: tc.Username,
 				Password: tc.Password,
