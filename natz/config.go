@@ -11,16 +11,19 @@ var (
 	urlRE = regexp.MustCompile(`(\S+)://((\S+):(\S+)@)?(\S+):(\d+)`)
 )
 
+// Config provides common NATs configuraiton
 type Config struct {
 	Url      string
 	Username string
 	Password string
 }
 
+// String returns configuration as a string (sans username and password)
 func (c Config) String() string {
 	return c.Url
 }
 
+// Url provides a string usable for nats.Connect
 func Url(c Config) string {
 	urls := []string{}
 
@@ -47,8 +50,4 @@ func Url(c Config) string {
 	}
 
 	return strings.Join(urls, ", ")
-}
-
-func Subject(env, service, subject string) string {
-	return env + "." + service + "." + subject
 }

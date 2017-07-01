@@ -3,19 +3,10 @@ package natz_test
 import (
 	"testing"
 
-	"github.com/altairsix/pkg/local"
 	"github.com/altairsix/pkg/natz"
 	"github.com/nats-io/go-nats"
-	"github.com/savaki/randx"
 	"github.com/stretchr/testify/assert"
 )
-
-func TestSubject(t *testing.T) {
-	sample := randx.AlphaN(20)
-	service := randx.AlphaN(20)
-	fqSubject := natz.Subject(local.Env, service, sample)
-	assert.Equal(t, local.Env+"."+service+"."+sample, fqSubject)
-}
 
 func TestUrl(t *testing.T) {
 	testCases := map[string]struct {
