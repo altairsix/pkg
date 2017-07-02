@@ -21,17 +21,24 @@ type gormDB struct {
 
 // Exec is implemented by *sql.DB and *sql.Tx
 func (g *gormDB) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return g.db.DB().Exec(query, args...)
+	return g.db.CommonDB().Exec(query, args...)
 }
 
 // PrepareContext is implemented by *sql.DB and *sql.Tx
 func (g *gormDB) PrepareContext(ctx context.Context, query string) (*sql.Stmt, error) {
-	return g.db.DB().PrepareContext(ctx, query)
+	db := g.db.CommonDB()
+
+	target, ok := db.(mysqlstore.DB)
+	if !ok {
+		return nil, fmt.Errorf("unable to handle common db")
+	}
+
+	return target.PrepareContext(ctx, query)
 }
 
 // Query is implemented by *sql.DB and *sql.Tx
 func (g *gormDB) Query(query string, args ...interface{}) (*sql.Rows, error) {
-	return g.db.DB().Query(query, args...)
+	return g.db.CommonDB().Query(query, args...)
 }
 
 // Open open a db connection
