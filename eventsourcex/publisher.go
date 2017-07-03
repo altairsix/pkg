@@ -6,8 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"bitbucket.org/vavende/sync/pkg/k"
-
 	"github.com/altairsix/eventsource"
 	"github.com/altairsix/pkg/action"
 	"github.com/altairsix/pkg/action/ticker"
@@ -114,7 +112,7 @@ func (p *publisher) listenAndPublish() {
 	defer close(p.check)
 	defer p.segment.Finish()
 
-	p.segment.Info("publisher:started", k.String("interval", p.interval.String()))
+	p.segment.Info("publisher:started", log.String("interval", p.interval.String()))
 
 	timer := time.NewTicker(p.interval)
 	defer timer.Stop()
