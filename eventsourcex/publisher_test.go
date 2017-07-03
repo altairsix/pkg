@@ -36,9 +36,8 @@ func TestPublisher(t *testing.T) {
 		return records, nil
 	})
 	cp := checkpoint.New(local.Env, local.DynamoDB)
-	cpKey := randx.AlphaN(20)
 
-	publisher := eventsourcex.PublishStream(context.Background(), h, r, cp, cpKey)
+	publisher := eventsourcex.PublishStream(context.Background(), h, r, cp, "local", randx.AlphaN(20))
 	defer publisher.Close()
 
 	publisher.Check()
@@ -73,13 +72,14 @@ func TestWithReceiveNotifications(t *testing.T) {
 
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)
+	defer nc.Close()
 
 	env := "local"
 	bc := randx.AlphaN(12)
 
 	eventsourcex.WithReceiveNotifications(p, nc, env, bc)
 
-	subject := eventsourcex.AggregateSubject(env, bc)
+	subject := eventsourcex.NoticesSubject(env, bc)
 
 	time.Sleep(time.Millisecond * 25) // give the receiver a moment to setup the subscription
 	nc.Publish(subject, []byte("hello"))
@@ -90,6 +90,7 @@ func TestWithReceiveNotifications(t *testing.T) {
 func TestPublishEvents(t *testing.T) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)
+	defer nc.Close()
 
 	env := "local"
 	bc := randx.AlphaN(12)
@@ -104,7 +105,7 @@ func TestPublishEvents(t *testing.T) {
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
-	h := eventsourcex.PublishEvents(nc, env, bc)
+	h := eventsourcex.WithPublishEvents(func(eventsource.StreamRecord) error { return nil }, nc, env, bc)
 	err = h(eventsource.StreamRecord{
 		AggregateID: id,
 		Record: eventsource.Record{

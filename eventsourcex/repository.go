@@ -2,20 +2,35 @@ package eventsourcex
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/altairsix/eventsource"
-	nats "github.com/nats-io/go-nats"
+	"github.com/altairsix/pkg/tracer"
+	"github.com/nats-io/go-nats"
+	"github.com/opentracing/opentracing-go/log"
 )
 
 const (
+	// ClusterID specifies the cluster-id of the nats streaming cluster that hosts events
+	ClusterID = "events"
+
 	// DefaultTimeout specifies how much time to wait for the eventual consistency
 	DefaultTimeout = time.Second * 3
 )
 
-// AggregateSubject returns the subject for a specific bounded context
+// AggregateSubject returns the streaming subject for a specific bounded context
 func AggregateSubject(env, boundedContext string) string {
-	return env + ".aggregate." + boundedContext
+	return env + ".streams.aggregate." + boundedContext
+}
+
+// NoticesSubject returns the subject for a specific bounded context
+func NoticesSubject(env, boundedContext string, args ...string) string {
+	subject := env + ".aggregate." + boundedContext
+	if len(args) > 0 {
+		subject += "." + strings.Join(args, ".")
+	}
+	return subject
 }
 
 // Repository provides an abstraction over *eventsource.Repository over the
@@ -34,11 +49,20 @@ func (fn RepositoryFunc) Apply(ctx context.Context, cmd eventsource.Command) (in
 	return fn(ctx, cmd)
 }
 
-// WithNotifier publishes an event to the AggregateSubject upon the successful completion of an event.
-// This enables any listeners to the AggregateSubject to immediately update their stores, providing,
+// WithTrace logs published events to the tracer
+func WithTrace(repo Repository) Repository {
+	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
+		segment, ctx := tracer.NewSegment(ctx, "repository:trace", log.String("id", cmd.AggregateID()))
+		defer segment.Finish()
+		return repo.Apply(ctx, cmd)
+	})
+}
+
+// WithNotifier publishes an event to the NoticesSubject upon the successful completion of an event.
+// This enables any listeners to the NoticesSubject to immediately update their stores, providing,
 // hopefully a more consistent experience for the user
 func WithNotifier(repo Repository, nc *nats.Conn, env, boundedContext string) Repository {
-	subject := AggregateSubject(env, boundedContext)
+	subject := NoticesSubject(env, boundedContext)
 
 	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
 		version, err := repo.Apply(ctx, cmd)
@@ -46,8 +70,15 @@ func WithNotifier(repo Repository, nc *nats.Conn, env, boundedContext string) Re
 			return 0, err
 		}
 
+		if env == "local" {
+			go func() {
+				segment := tracer.SegmentFromContext(ctx)
+				segment.Info("repository:notifier:publish", log.String("subject", subject), log.String("id", cmd.AggregateID()))
+			}()
+		}
+
 		go func() {
-			nc.Publish(subject, nil)
+			nc.Publish(subject, []byte(cmd.AggregateID()))
 		}()
 
 		return version, nil
@@ -84,9 +115,9 @@ func subscribeForUpdates(nc *nats.Conn, subject string, timeout time.Duration) <
 }
 
 // WithConsistentRead provides a faux consistent read.  Should wrap WithNotifier to ensure that
-// the AggregateSubject.{ID} is subscribed to prior to the command being executed.
+// the NoticesSubject.{ID} is subscribed to prior to the command being executed.
 func WithConsistentRead(repo Repository, nc *nats.Conn, env, boundedContext string) Repository {
-	rootSubject := AggregateSubject(env, boundedContext) + "."
+	rootSubject := NoticesSubject(env, boundedContext) + "."
 
 	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
 		subject := rootSubject + cmd.AggregateID()

@@ -26,13 +26,14 @@ func (m Mock) Apply(ctx context.Context, cmd eventsource.Command) (int, error) {
 func TestWithNotifier(t *testing.T) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)
+	defer nc.Close()
 
 	id := randx.AlphaN(12)
 	env := "local"
 	bc := randx.AlphaN(12)
 
 	received := make(chan struct{}, 1)
-	sub, err := nc.Subscribe(eventsourcex.AggregateSubject(env, bc), func(m *nats.Msg) {
+	sub, err := nc.Subscribe(eventsourcex.NoticesSubject(env, bc), func(m *nats.Msg) {
 		select {
 		case received <- struct{}{}:
 		default:
@@ -52,11 +53,12 @@ func TestWithNotifier(t *testing.T) {
 func TestWithConsistenRead(t *testing.T) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)
+	defer nc.Close()
 
 	id := randx.AlphaN(12)
 	env := "local"
 	bc := randx.AlphaN(12)
-	subject := eventsourcex.AggregateSubject(env, bc) + "." + id
+	subject := eventsourcex.NoticesSubject(env, bc) + "." + id
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -71,7 +73,7 @@ func TestWithConsistenRead(t *testing.T) {
 			case <-ctx.Done():
 				return
 			case <-timer.C:
-				nc.Publish(subject, nil)
+				nc.Publish(subject, []byte(id))
 			}
 		}
 	}()

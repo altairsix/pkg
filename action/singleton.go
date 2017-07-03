@@ -85,18 +85,24 @@ func Singleton(ticker Ticker, fn func(ctx context.Context) error, opts ...Single
 		elect := time.NewTicker(cfg.elections)
 		defer elect.Stop()
 
-		start := func() {
-			child, cancel = context.WithCancel(ctx)
-			done = make(chan struct{})
-			go func() {
-				defer close(done)
-				errs <- fn(child)
-			}()
+		run := func() {
+			done = make(chan struct{}) // done is scoped to our parent
+			defer close(done)
+
+			child, cancel = context.WithCancel(ctx) // child and cancel are also both scoped to our parent
+			defer cancel()
+
+			childSegment, child := tracer.NewSegment(child, "singleton:run:finished")
+			childSegment.Info("singleton:run:started")
+			defer childSegment.Finish()
+
+			errs <- fn(child)
 		}
 
 		for {
 			select {
 			case <-ctx.Done():
+				segment.Info("singleton:canceled")
 				return nil
 
 			case v := <-ch:
@@ -142,7 +148,7 @@ func Singleton(ticker Ticker, fn func(ctx context.Context) error, opts ...Single
 					case <-time.After(delay):
 					}
 
-					start()
+					go run()
 				}
 
 			case err := <-errs:
@@ -159,11 +165,9 @@ func Singleton(ticker Ticker, fn func(ctx context.Context) error, opts ...Single
 				if !leader {
 					segment.Info("singleton:elected_leader")
 					leader = true
-					start()
+					go run()
 				}
 			}
 		}
-
-		return nil
 	}
 }
