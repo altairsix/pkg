@@ -110,15 +110,11 @@ func (p *publisher) listenAndPublish() {
 	}
 }
 
-// WithPublishEvents publishes received events to nats
-func WithPublishEvents(h func(eventsource.StreamRecord) error, nc *nats.Conn, env, boundedContext string) func(eventsource.StreamRecord) error {
+// PublishEvents publishes received events to nats
+func PublishEvents(nc *nats.Conn, env, boundedContext string) func(eventsource.StreamRecord) error {
 	rootSubject := AggregateSubject(env, boundedContext) + "."
 
 	return func(event eventsource.StreamRecord) error {
-		if err := h(event); err != nil {
-			return err
-		}
-
 		subject := rootSubject + event.AggregateID
 		go nc.Publish(subject, nil)
 		return nil
@@ -163,7 +159,6 @@ func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext st
 			default:
 			}
 
-			fmt.Println("subscribing to subject,", subject)
 			if v, err := nc.Subscribe(subject, fn); err == nil {
 				sub = v
 				fmt.Println("ok")

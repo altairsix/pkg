@@ -87,13 +87,10 @@ func TestWithReceiveNotifications(t *testing.T) {
 	assert.Equal(t, int32(1), p.checkCalled)
 }
 
-func TestWithPublishEvents(t *testing.T) {
+func TestPublishEvents(t *testing.T) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)
 
-	h := func(event eventsource.StreamRecord) error {
-		return nil
-	}
 	env := "local"
 	bc := randx.AlphaN(12)
 	id := randx.AlphaN(18)
@@ -107,7 +104,7 @@ func TestWithPublishEvents(t *testing.T) {
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
-	h = eventsourcex.WithPublishEvents(h, nc, env, bc)
+	h := eventsourcex.PublishEvents(nc, env, bc)
 	err = h(eventsource.StreamRecord{
 		AggregateID: id,
 		Record: eventsource.Record{
