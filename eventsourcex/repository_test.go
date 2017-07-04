@@ -57,3 +57,30 @@ func TestWithConsistenRead(t *testing.T) {
 	assert.Nil(t, err)
 	assert.True(t, time.Now().Sub(startedAt) < time.Millisecond*250)
 }
+
+func TestWithNotifier(t *testing.T) {
+	nc, err := nats.Connect(nats.DefaultURL)
+	assert.Nil(t, err)
+	defer nc.Close()
+
+	id := randx.AlphaN(12)
+	env := "local"
+	bc := randx.AlphaN(12)
+
+	received := make(chan struct{}, 1)
+	sub, err := nc.Subscribe(eventsourcex.NoticesSubject(env, bc), func(m *nats.Msg) {
+		select {
+		case received <- struct{}{}:
+		default:
+		}
+	})
+	assert.Nil(t, err)
+	defer sub.Unsubscribe()
+
+	m := Mock{}
+	repo := eventsourcex.WithNotifier(m, nc, env, bc)
+	_, err = repo.Apply(context.Background(), &Command{CommandModel: eventsource.CommandModel{ID: id}})
+	assert.Nil(t, err)
+
+	<-received // expect a message to be received
+}

@@ -63,7 +63,6 @@ func (p *publisher) Check() {
 	case p.check <- struct{}{}:
 	default:
 	}
-
 }
 
 // Done allows external tools to signal off of when the publisher is done
@@ -170,6 +169,26 @@ func PublishStream(ctx context.Context, h func(eventsource.StreamRecord) error, 
 	return p
 }
 
+type tracingPublisher struct {
+	target  Publisher
+	segment tracer.Segment
+}
+
+// WithTraceReceiveNotices returns a Publisher that ping when Check is invoked
+func WithTraceReceiveNotices(p Publisher, segment tracer.Segment) Publisher {
+	return &tracingPublisher{
+		target:  p,
+		segment: segment,
+	}
+}
+
+func (s *tracingPublisher) Close() error          { return s.target.Close() }
+func (s *tracingPublisher) Done() <-chan struct{} { return s.target.Done() }
+func (s *tracingPublisher) Check() {
+	s.segment.Info("eventsourcex:notice_received")
+	s.target.Check()
+}
+
 // WithReceiveNotifications listens to nats for notices on the StreamSubject and prods the publisher
 func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext string) Publisher {
 	go func() {
@@ -222,24 +241,17 @@ func PublishStreamSingleton(ctx context.Context, r eventsource.StreamReader, cp 
 	t := ticker.Nats(nc, makeTickerSubject(env, bc))
 	fn := action.Singleton(t, func(ctx context.Context) error {
 		h := PublishStan(st, subject)
-		h = WithPublishEvents(h, nc, env, bc) // publish events to here
+		h = WithPublishEvents(h, nc, env, bc)              // publish events to here
+		publisher := PublishStream(ctx, h, r, cp, env, bc) // go!
 		if env == "local" {
-			h = withLogging(h, segment)
+			publisher = WithTraceReceiveNotices(publisher, segment)
 		}
-		publisher := PublishStream(ctx, h, r, cp, env, bc)           // go!
 		publisher = WithReceiveNotifications(publisher, nc, env, bc) // ping the publisher when events received
 		<-publisher.Done()                                           // wait until done
 		return nil
 	})
 
 	return fn(ctx)
-}
-
-func withLogging(fn func(event eventsource.StreamRecord) error, segment tracer.Segment) func(event eventsource.StreamRecord) error {
-	return func(event eventsource.StreamRecord) error {
-		segment.Info("publish_event:trace", log.String("id", event.AggregateID), log.Int("version", event.Version))
-		return fn(event)
-	}
 }
 
 func makeCheckpointKey(env, bc string) string {

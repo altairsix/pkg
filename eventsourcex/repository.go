@@ -16,7 +16,7 @@ const (
 	ClusterID = "events"
 
 	// DefaultTimeout specifies how much time to wait for the eventual consistency
-	DefaultTimeout = time.Second * 3
+	DefaultTimeout = time.Second * 5
 )
 
 // StreamSubject returns the streaming subject for a specific bounded context
@@ -52,9 +52,36 @@ func (fn RepositoryFunc) Apply(ctx context.Context, cmd eventsource.Command) (in
 // WithTrace logs published events to the tracer
 func WithTrace(repo Repository) Repository {
 	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
-		segment, ctx := tracer.NewSegment(ctx, "repository:trace", log.String("id", cmd.AggregateID()))
+		segment, ctx := tracer.NewSegment(ctx, "repository:apply", log.String("id", cmd.AggregateID()))
 		defer segment.Finish()
 		return repo.Apply(ctx, cmd)
+	})
+}
+
+// WithNotifier publishes an event to the NoticesSubject upon the successful completion of an event.
+// This enables any listeners to the NoticesSubject to immediately update their stores, providing,
+// hopefully a more consistent experience for the user
+func WithNotifier(repo Repository, nc *nats.Conn, env, boundedContext string) Repository {
+	subject := NoticesSubject(env, boundedContext)
+
+	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
+		version, err := repo.Apply(ctx, cmd)
+		if err != nil {
+			return 0, err
+		}
+
+		if env == "local" {
+			go func() {
+				segment := tracer.SegmentFromContext(ctx)
+				segment.Info("eventsourcex:notice_published", log.String("subject", subject), log.String("id", cmd.AggregateID()))
+			}()
+		}
+
+		go func() {
+			nc.Publish(subject, []byte(cmd.AggregateID()))
+		}()
+
+		return version, nil
 	})
 }
 
