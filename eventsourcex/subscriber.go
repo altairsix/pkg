@@ -3,14 +3,17 @@ package eventsourcex
 import (
 	"context"
 
-	"github.com/altairsix/pkg/action"
-	"github.com/altairsix/pkg/action/ticker"
 	"github.com/nats-io/go-nats"
+	"github.com/nats-io/go-nats-streaming"
+	"github.com/pkg/errors"
+	"github.com/segmentio/ksuid"
 )
 
-// Subscribe listens for update events
-func Subscribe(ctx context.Context, nc *nats.Conn, env, boundedContext string, fn func(id string)) error {
-	subject := AggregateSubject(env, boundedContext)
+// SubscribeNotices listens for notices for a specific bounded context.  Notices are published when the
+// caller of a command would like a consistent read after writer.  The notice provides eventually
+// consistent services an opportunity to update the read model immediately.
+func SubscribeNotices(ctx context.Context, nc *nats.Conn, env, boundedContext string, fn func(id string)) error {
+	subject := NoticesSubject(env, boundedContext)
 	sub, err := nc.Subscribe(subject, func(m *nats.Msg) {
 		fn(string(m.Data))
 	})
@@ -23,13 +26,32 @@ func Subscribe(ctx context.Context, nc *nats.Conn, env, boundedContext string, f
 	return nil
 }
 
-// SubscribeSingleton start a single singleton across the cluster
-func SubscribeSingleton(ctx context.Context, nc *nats.Conn, env, boundedContext, key string, fn func(id string)) error {
-	subject := makeTickerSubject(env, boundedContext, key)
-	t := ticker.Nats(nc, subject)
-	singleton := action.Singleton(t, func(ctx context.Context) error {
-		return Subscribe(ctx, nc, env, boundedContext, fn)
-	})
+// SubscribeStream subscribes to a nats stream for the specified bounded context
+func SubscribeStream(ctx context.Context, nc *nats.Conn, cp Checkpointer, env, boundedContext string, fn func(*stan.Msg)) (<-chan struct{}, error) {
+	st, err := stan.Connect(ClusterID, ksuid.New().String(), stan.NatsConn(nc))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to connect to cluster, %v", ClusterID)
+	}
 
-	return singleton(ctx)
+	subject := StreamSubject(env, boundedContext)
+	cpKey := makeCheckpointKey(env, boundedContext)
+
+	sequence, err := cp.Load(ctx, cpKey)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to load checkpoint, %v", cpKey)
+	}
+
+	sub, err := st.Subscribe(subject, fn, stan.StartAtSequence(sequence))
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to scribe to stan subject, %v", subject)
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		defer sub.Unsubscribe()
+		<-ctx.Done()
+	}()
+
+	return done, nil
 }

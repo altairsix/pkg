@@ -2,7 +2,6 @@ package eventsourcex
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -44,8 +43,9 @@ type publisher struct {
 	cpKey           string
 	cp              *checkpoint.CP
 	interval        time.Duration
-	offset          int64
-	committedOffset int64
+	offset          uint64
+	offsetLoaded    bool
+	committedOffset uint64
 	committedAt     time.Time
 	recordCount     int
 }
@@ -75,12 +75,13 @@ func (p *publisher) checkOnce() {
 	segment, ctx := tracer.NewSegment(p.ctx, "publisher:check_once")
 	defer segment.Finish()
 
-	if p.offset == -1 {
+	if !p.offsetLoaded {
 		v, err := p.cp.Load(ctx, p.cpKey)
 		if err != nil {
 			return
 		}
 		p.offset = v
+		p.offsetLoaded = true
 	}
 
 	// read  events
@@ -131,7 +132,7 @@ func (p *publisher) listenAndPublish() {
 
 // WithPublishEvents publishes received events to nats
 func WithPublishEvents(fn func(eventsource.StreamRecord) error, nc *nats.Conn, env, boundedContext string) func(eventsource.StreamRecord) error {
-	rootSubject := AggregateSubject(env, boundedContext) + "."
+	rootSubject := StreamSubject(env, boundedContext) + "."
 
 	return func(event eventsource.StreamRecord) error {
 		if err := fn(event); err != nil {
@@ -151,19 +152,17 @@ func PublishStream(ctx context.Context, h func(eventsource.StreamRecord) error, 
 
 	child, cancel := context.WithCancel(ctx)
 	p := &publisher{
-		ctx:             child,
-		cancel:          cancel,
-		done:            make(chan struct{}),
-		check:           make(chan struct{}, 1),
-		segment:         segment,
-		r:               r,
-		h:               h,
-		cpKey:           cpKey,
-		cp:              cp,
-		interval:        DefaultPublishInterval,
-		offset:          -1,
-		committedOffset: -1,
-		recordCount:     100,
+		ctx:         child,
+		cancel:      cancel,
+		done:        make(chan struct{}),
+		check:       make(chan struct{}, 1),
+		segment:     segment,
+		r:           r,
+		h:           h,
+		cpKey:       cpKey,
+		cp:          cp,
+		interval:    DefaultPublishInterval,
+		recordCount: 100,
 	}
 
 	go p.listenAndPublish()
@@ -171,7 +170,7 @@ func PublishStream(ctx context.Context, h func(eventsource.StreamRecord) error, 
 	return p
 }
 
-// WithReceiveNotifications listens to nats for notices on the AggregateSubject and prods the publisher
+// WithReceiveNotifications listens to nats for notices on the StreamSubject and prods the publisher
 func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext string) Publisher {
 	go func() {
 		subject := NoticesSubject(env, boundedContext)
@@ -189,7 +188,6 @@ func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext st
 
 			if v, err := nc.Subscribe(subject, fn); err == nil {
 				sub = v
-				fmt.Println("ok")
 				break
 			}
 		}
@@ -210,7 +208,7 @@ func PublishStan(st stan.Conn, subject string) func(event eventsource.StreamReco
 
 // PublishStreamSingleton is similar to PublishStream except that there may be only one running in the environment
 func PublishStreamSingleton(ctx context.Context, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string, nc *nats.Conn) error {
-	subject := AggregateSubject(env, bc)
+	subject := StreamSubject(env, bc)
 
 	segment, ctx := tracer.NewSegment(ctx, "publish_stream")
 	segment.SetBaggageItem("subject", subject)

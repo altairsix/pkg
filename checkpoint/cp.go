@@ -24,8 +24,8 @@ func New(env string, api *dynamodb.DynamoDB) *CP {
 }
 
 // Save the offset for the specified key to the data store
-func (c *CP) Save(ctx context.Context, key string, offset int64) error {
-	offsetStr := aws.String(strconv.FormatInt(offset, 10))
+func (c *CP) Save(ctx context.Context, key string, offset uint64) error {
+	offsetStr := aws.String(strconv.FormatUint(offset, 10))
 	_, err := c.api.PutItem(&dynamodb.PutItemInput{
 		TableName: aws.String(c.tableName),
 		Item: map[string]*dynamodb.AttributeValue{
@@ -48,7 +48,7 @@ func (c *CP) Save(ctx context.Context, key string, offset int64) error {
 }
 
 // Load the offset for the specified key from the data store
-func (c *CP) Load(ctx context.Context, key string) (int64, error) {
+func (c *CP) Load(ctx context.Context, key string) (uint64, error) {
 	out, err := c.api.GetItem(&dynamodb.GetItemInput{
 		TableName:      aws.String(c.tableName),
 		ConsistentRead: aws.Bool(true),
@@ -64,7 +64,7 @@ func (c *CP) Load(ctx context.Context, key string) (int64, error) {
 		return 0, nil
 	}
 
-	offset, err := strconv.ParseInt(*out.Item["offset"].N, 10, 64)
+	offset, err := strconv.ParseUint(*out.Item["offset"].N, 10, 64)
 	if err != nil {
 		return 0, err
 	}

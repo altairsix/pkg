@@ -23,33 +23,6 @@ func (m Mock) Apply(ctx context.Context, cmd eventsource.Command) (int, error) {
 	return 0, nil
 }
 
-func TestWithNotifier(t *testing.T) {
-	nc, err := nats.Connect(nats.DefaultURL)
-	assert.Nil(t, err)
-	defer nc.Close()
-
-	id := randx.AlphaN(12)
-	env := "local"
-	bc := randx.AlphaN(12)
-
-	received := make(chan struct{}, 1)
-	sub, err := nc.Subscribe(eventsourcex.NoticesSubject(env, bc), func(m *nats.Msg) {
-		select {
-		case received <- struct{}{}:
-		default:
-		}
-	})
-	assert.Nil(t, err)
-	defer sub.Unsubscribe()
-
-	m := Mock{}
-	repo := eventsourcex.WithNotifier(m, nc, env, bc)
-	_, err = repo.Apply(context.Background(), &Command{CommandModel: eventsource.CommandModel{ID: id}})
-	assert.Nil(t, err)
-
-	<-received // expect a message to be received
-}
-
 func TestWithConsistenRead(t *testing.T) {
 	nc, err := nats.Connect(nats.DefaultURL)
 	assert.Nil(t, err)

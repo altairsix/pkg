@@ -32,7 +32,7 @@ func TestPublisher(t *testing.T) {
 			AggregateID: "abc",
 		},
 	}
-	r := eventsource.StreamReaderFunc(func(ctx context.Context, startingOffset int64, recordCount int) ([]eventsource.StreamRecord, error) {
+	r := eventsource.StreamReaderFunc(func(ctx context.Context, startingOffset uint64, recordCount int) ([]eventsource.StreamRecord, error) {
 		return records, nil
 	})
 	cp := checkpoint.New(local.Env, local.DynamoDB)
@@ -96,7 +96,7 @@ func TestPublishEvents(t *testing.T) {
 	bc := randx.AlphaN(12)
 	id := randx.AlphaN(18)
 	version := 123
-	subject := eventsourcex.AggregateSubject(env, bc) + "." + id
+	subject := eventsourcex.StreamSubject(env, bc) + "." + id
 
 	received := int32(0)
 	sub, err := nc.Subscribe(subject, func(m *nats.Msg) {

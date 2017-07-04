@@ -18,7 +18,7 @@ func TestLifecycle(t *testing.T) {
 	cp := checkpoint.New(local.Env, local.DynamoDB)
 	key := randx.AlphaN(12)
 
-	offset := randx.Int63()
+	offset := uint64(randx.Int63())
 	err = cp.Save(ctx, key, offset)
 	assert.Nil(t, err)
 
