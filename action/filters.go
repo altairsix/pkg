@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/altairsix/pkg/timeofday"
 	"github.com/altairsix/pkg/tracer"
 	"github.com/opentracing/opentracing-go/log"
 )
@@ -55,6 +56,42 @@ func Forever(delay time.Duration) Filter {
 				select {
 				case <-ctx.Done():
 					return nil
+				case <-time.After(jitter(delay)):
+				}
+			}
+		}
+	}
+}
+
+// RestartBetween restarts the action after a delay as long as the time
+// is within the time range provided.  Only the hour, minute, and second
+func RestartBetween(from, to timeofday.Clock, delay time.Duration) Filter {
+	return func(a Action) Action {
+		runOnce := func(ctx context.Context, now time.Time) error {
+			maxAge := to.Today().Sub(time.Now())
+			if maxAge <= 0 {
+				return nil
+			}
+
+			child, cancel := context.WithTimeout(ctx, maxAge)
+			defer cancel()
+
+			return a.Do(child)
+		}
+
+		return func(ctx context.Context) error {
+			for {
+				now := time.Now()
+				if from.GT(now) || to.LT(now) {
+					return nil
+				}
+
+				if err := runOnce(ctx, now); err != nil {
+					return err
+				}
+
+				select {
+				case <-ctx.Done():
 				case <-time.After(jitter(delay)):
 				}
 			}
