@@ -61,6 +61,20 @@ type Checkpointer interface {
 	Save(ctx context.Context, key string, offset uint64) error
 }
 
+// MemoryCP provides an in-memory non-thread-safe implementation of a checkpoint
+type MemoryCP map[string]uint64
+
+// Load implements Checkpointer.Save
+func (m MemoryCP) Load(ctx context.Context, key string) (uint64, error) {
+	return m[key], nil
+}
+
+// Save implements Checkpointer.Save
+func (m MemoryCP) Save(ctx context.Context, key string, offset uint64) error {
+	m[key] = offset
+	return nil
+}
+
 type message struct {
 	data   []byte
 	offset uint64

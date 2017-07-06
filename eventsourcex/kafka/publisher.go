@@ -8,8 +8,8 @@ import (
 	"github.com/altairsix/pkg/eventsourcex"
 )
 
-// PublishEvents to kafka
-func PublishEvents(ctx context.Context, producer sarama.SyncProducer, topic string) eventsourcex.PublisherFunc {
+// NewPublisher creates a kafka publisher
+func NewPublisher(ctx context.Context, producer sarama.SyncProducer, topic string) eventsourcex.PublisherFunc {
 	return func(event eventsource.StreamRecord) error {
 		_, _, err := producer.SendMessage(&sarama.ProducerMessage{
 			Topic: topic,

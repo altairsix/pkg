@@ -50,7 +50,7 @@ type supervisor struct {
 	r               eventsource.StreamReader
 	h               Publisher
 	cpKey           string
-	cp              *checkpoint.CP
+	cp              Checkpointer
 	interval        time.Duration
 	offset          uint64
 	offsetLoaded    bool
@@ -154,12 +154,12 @@ func WithPublishEvents(fn Publisher, nc *nats.Conn, env, boundedContext string) 
 }
 
 // PublishStream reads from a stream and publishes
-func PublishStream(ctx context.Context, h Publisher, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string) Supervisor {
+func PublishStream(ctx context.Context, h Publisher, r eventsource.StreamReader, cp Checkpointer, env, bc string) Supervisor {
 	cpKey := makeCheckpointKey(env, bc)
 	segment, _ := tracer.NewSegment(ctx, "publish_stream", log.String("checkpoint", cpKey))
 
 	child, cancel := context.WithCancel(ctx)
-	p := &supervisor{
+	s := &supervisor{
 		ctx:         child,
 		cancel:      cancel,
 		done:        make(chan struct{}),
@@ -173,9 +173,9 @@ func PublishStream(ctx context.Context, h Publisher, r eventsource.StreamReader,
 		recordCount: 100,
 	}
 
-	go p.listenAndPublish()
+	go s.listenAndPublish()
 
-	return p
+	return s
 }
 
 type tracingPublisher struct {

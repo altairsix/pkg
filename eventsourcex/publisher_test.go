@@ -7,9 +7,7 @@ import (
 	"time"
 
 	"github.com/altairsix/eventsource"
-	"github.com/altairsix/pkg/checkpoint"
 	"github.com/altairsix/pkg/eventsourcex"
-	"github.com/altairsix/pkg/local"
 	"github.com/nats-io/go-nats"
 	"github.com/savaki/randx"
 	"github.com/stretchr/testify/assert"
@@ -35,12 +33,13 @@ func TestPublisher(t *testing.T) {
 	r := eventsource.StreamReaderFunc(func(ctx context.Context, startingOffset uint64, recordCount int) ([]eventsource.StreamRecord, error) {
 		return records, nil
 	})
-	cp := checkpoint.New(local.Env, local.DynamoDB)
+	cp := eventsourcex.MemoryCP{}
 
-	publisher := eventsourcex.PublishStream(context.Background(), h, r, cp, "local", randx.AlphaN(20))
-	defer publisher.Close()
+	// When
+	supervisor := eventsourcex.PublishStream(context.Background(), h, r, cp, "local", randx.AlphaN(20))
+	defer supervisor.Close()
 
-	publisher.Check()
+	supervisor.Check()
 	time.Sleep(time.Millisecond * 50)
 	assert.True(t, len(received) > 0, "expected at least 1 record to be received")
 	assert.Equal(t, records[0], received[0])

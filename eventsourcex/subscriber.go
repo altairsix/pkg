@@ -27,7 +27,7 @@ func SubscribeNotices(ctx context.Context, nc *nats.Conn, env, boundedContext st
 }
 
 // SubscribeStream subscribes to a nats stream for the specified bounded context
-func SubscribeStream(ctx context.Context, nc *nats.Conn, cp Checkpointer, env, boundedContext string, fn func(*stan.Msg)) (<-chan struct{}, error) {
+func SubscribeStream(ctx context.Context, nc *nats.Conn, cp Checkpointer, env, boundedContext string, h Handler) (<-chan struct{}, error) {
 	st, err := stan.Connect(ClusterID, ksuid.New().String(), stan.NatsConn(nc))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to connect to cluster, %v", ClusterID)
@@ -41,6 +41,9 @@ func SubscribeStream(ctx context.Context, nc *nats.Conn, cp Checkpointer, env, b
 		return nil, errors.Wrapf(err, "unable to load checkpoint, %v", cpKey)
 	}
 
+	fn := func(m *stan.Msg) {
+		h.Handle(m.Sequence, m.Data)
+	}
 	sub, err := st.Subscribe(subject, fn, stan.StartAtSequence(sequence))
 	if err != nil {
 		return nil, errors.Wrapf(err, "unable to scribe to stan subject, %v", subject)
