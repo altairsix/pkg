@@ -7,3 +7,4 @@
 # ignore sample content
 # 
 /test.json
+/local.env

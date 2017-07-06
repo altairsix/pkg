@@ -6,7 +6,6 @@ import (
 
 	"github.com/altairsix/eventsource"
 	nats "github.com/nats-io/go-nats"
-	"github.com/nats-io/go-nats-streaming"
 	"github.com/pkg/errors"
 )
 
@@ -16,6 +15,20 @@ type Processor func(ctx context.Context, events ...eventsource.Event) error
 // Do is a helper method to invoke the Processor
 func (fn Processor) Do(ctx context.Context, events ...eventsource.Event) error {
 	return fn(ctx, events...)
+}
+
+// Handler provides the business end of the MessageHandler struct
+type Handler interface {
+	// Handle receives the inbound message
+	Handle(offset uint64, data []byte)
+}
+
+// HandlerFunc provides a func wrapper for Handler
+type HandlerFunc func(offset uint64, data []byte)
+
+// Handle implements the Handle interface
+func (fn HandlerFunc) Handle(offset uint64, data []byte) {
+	fn(offset, data)
 }
 
 // WithSendNotices publishes an event to the notices subject if the processor executes successfully
@@ -48,6 +61,11 @@ type Checkpointer interface {
 	Save(ctx context.Context, key string, offset uint64) error
 }
 
+type message struct {
+	data   []byte
+	offset uint64
+}
+
 // MessageHandler encapsulates a nats streaming processor that performs buffered processing
 type MessageHandler struct {
 	ctx        context.Context
@@ -57,7 +75,7 @@ type MessageHandler struct {
 	unmarshal  Unmarshaler
 	cp         Checkpointer
 	cpKey      string
-	ch         chan *stan.Msg
+	ch         chan *message
 	interval   time.Duration
 	bufferSize int
 }
@@ -85,7 +103,7 @@ func (m *MessageHandler) Done() <-chan struct{} {
 	return m.done
 }
 
-func (m *MessageHandler) flush(data ...*stan.Msg) error {
+func (m *MessageHandler) flush(data ...*message) error {
 	if len(data) == 0 {
 		return nil
 	}
@@ -115,7 +133,7 @@ func (m *MessageHandler) start() {
 	defer t.Stop()
 
 	size := m.bufferSize
-	buffer := make([]*stan.Msg, size)
+	buffer := make([]*message, size)
 	offset := 0
 
 	for {
@@ -140,9 +158,12 @@ func (m *MessageHandler) start() {
 	}
 }
 
-// Handle provides the nats streaming message handler
-func (m *MessageHandler) Handle(msg *stan.Msg) {
-	m.ch <- msg
+// Handle the the specified stream record
+func (m *MessageHandler) Handle(offset uint64, data []byte) {
+	m.ch <- &message{
+		offset: offset,
+		data:   data,
+	}
 }
 
 // Close releases resources associated with the MessageHandler
@@ -163,7 +184,7 @@ func NewMessageHandler(ctx context.Context, p Processor, u Unmarshaler, cp Check
 		processor:  p,
 		unmarshal:  u,
 		cp:         cp,
-		ch:         make(chan *stan.Msg, 256),
+		ch:         make(chan *message, 256),
 		interval:   time.Millisecond * 250,
 		bufferSize: 100,
 	}
@@ -176,18 +197,18 @@ func NewMessageHandler(ctx context.Context, p Processor, u Unmarshaler, cp Check
 	return h
 }
 
-func bytesToEvents(unmarshal Unmarshaler, messages ...*stan.Msg) ([]eventsource.Event, uint64, error) {
+func bytesToEvents(unmarshal Unmarshaler, messages ...*message) ([]eventsource.Event, uint64, error) {
 	events := make([]eventsource.Event, 0, len(messages))
 
 	sequence := uint64(0)
 	for _, m := range messages {
-		event, err := unmarshal(m.Data)
+		event, err := unmarshal(m.data)
 		if err != nil {
-			return nil, 0, errors.Wrapf(err, "unable to unmarshal event at sequence, %v", m.Sequence)
+			return nil, 0, errors.Wrapf(err, "unable to unmarshal event at sequence, %v", m.offset)
 		}
 
 		events = append(events, event)
-		sequence = m.Sequence
+		sequence = m.offset
 	}
 
 	return events, sequence, nil

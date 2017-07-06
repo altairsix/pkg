@@ -7,8 +7,7 @@ import (
 
 	"github.com/altairsix/eventsource"
 	"github.com/altairsix/pkg/eventsourcex"
-	nats "github.com/nats-io/go-nats"
-	"github.com/nats-io/go-nats-streaming"
+	"github.com/nats-io/go-nats"
 	"github.com/savaki/randx"
 	"github.com/stretchr/testify/assert"
 )
@@ -63,7 +62,7 @@ func TestMessageHandlerInFlight(t *testing.T) {
 		defer h.Close()
 
 		// When
-		h.Handle(&stan.Msg{})
+		h.Handle(0, nil)
 		time.Sleep(time.Millisecond)
 
 		// Then
@@ -102,7 +101,7 @@ func TestMessageHandlerInterval(t *testing.T) {
 
 		// When
 		startedAt := time.Now()
-		h.Handle(&stan.Msg{})
+		h.Handle(0, nil)
 		<-received
 		assert.True(t, time.Now().Sub(startedAt) < time.Second)
 	})
@@ -135,7 +134,7 @@ func TestMessageHandler(t *testing.T) {
 
 		// When
 		startedAt := time.Now()
-		h.Handle(&stan.Msg{})
+		h.Handle(0, nil)
 		<-received
 		assert.True(t, time.Now().Sub(startedAt) < time.Millisecond*50)
 	})
