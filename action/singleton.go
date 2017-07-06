@@ -23,6 +23,7 @@ type singleton struct {
 	interval  time.Duration
 	elections time.Duration
 	lease     time.Duration
+	restarts  int
 }
 
 type SingletonOption func(*singleton)
@@ -42,6 +43,15 @@ func WithElections(d time.Duration) SingletonOption {
 func WithLease(d time.Duration) SingletonOption {
 	return func(s *singleton) {
 		s.lease = d
+	}
+}
+
+// WithRestarts defines the number of times the action should be
+// restarted; restarts >= 0 represents the number of restarts before
+// returning; -1 means always restart; defaults to 0
+func WithRestarts(restarts int) SingletonOption {
+	return func(s *singleton) {
+		s.restarts = restarts
 	}
 }
 
@@ -76,10 +86,9 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 			restarts := 0
 
 			var child context.Context
-			var done chan struct{}
+			var finished chan error
 			cancel := func() {}
 
-			errs := make(chan error, 10)
 			leases := make([]time.Time, 0, 12)
 
 			t := time.NewTicker(jitter(cfg.interval))
@@ -89,8 +98,8 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 			defer elect.Stop()
 
 			run := func() {
-				done = make(chan struct{}) // done is scoped to our parent
-				defer close(done)
+				finished = make(chan error, 1) // done is scoped to our parent
+				defer close(finished)
 
 				child, cancel = context.WithCancel(ctx) // child and cancel are also both scoped to our parent
 				defer cancel()
@@ -99,7 +108,7 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 				childSegment.Info("singleton:run:started")
 				defer childSegment.Finish()
 
-				errs <- a.Do(child)
+				finished <- a.Do(child)
 			}
 
 			for {
@@ -130,9 +139,17 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 						cancel()
 					}
 
-				case <-done:
+				case err := <-finished:
+					if err != nil {
+						segment.LogFields(log.Error(err))
+						return err
+					}
+
 					if leader {
 						restarts++
+						if cfg.restarts >= 0 && restarts > cfg.restarts {
+							return err
+						}
 						delay := cfg.interval
 						if restarts > 100 {
 							delay = time.Minute * 15
@@ -152,12 +169,6 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 						}
 
 						go run()
-					}
-
-				case err := <-errs:
-					if err != nil {
-						segment.LogFields(log.Error(err))
-						return err
 					}
 
 				case <-elect.C:

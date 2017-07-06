@@ -55,11 +55,12 @@ func TestSingleton(t *testing.T) {
 	invocations := int32(0)
 	a := Run(&invocations)
 	singleton := action.Singleton(mock,
+		action.WithRestarts(-1), // repeat forever
 		action.WithInterval(interval),
 		action.WithElections(interval*3),
 		action.WithLease(interval*10),
 	)
 	err := a.Use(singleton).Do(ctx)
 	assert.Nil(t, err)
-	assert.True(t, invocations > 5)
+	assert.True(t, invocations > 5, "expected at least 5 invocations, got %v", invocations)
 }
