@@ -1,4 +1,4 @@
-package ticker_test
+package heartbeat_test
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/altairsix/pkg/action"
-	"github.com/altairsix/pkg/action/ticker"
-	nats "github.com/nats-io/go-nats"
+	"github.com/altairsix/pkg/action/heartbeat"
+	"github.com/nats-io/go-nats"
 	"github.com/savaki/randx"
 	"github.com/stretchr/testify/assert"
 )
@@ -17,7 +17,7 @@ func TestNats(t *testing.T) {
 	assert.Nil(t, err)
 
 	subject := randx.AlphaN(12)
-	tk := ticker.Nats(nc, subject)
+	tk := heartbeat.Nats(nc, subject)
 
 	tick := action.Tick{
 		ID:        randx.AlphaN(12),

@@ -7,28 +7,22 @@ import (
 	"time"
 
 	"github.com/altairsix/pkg/action"
-	"github.com/altairsix/pkg/tracer"
-	"github.com/opentracing/opentracing-go"
 	"github.com/stretchr/testify/assert"
 )
 
-func init() {
-	opentracing.InitGlobalTracer(tracer.DefaultTracer)
-}
-
-type MockTicker struct {
+type MockHeartbeat struct {
 	ch chan action.Tick
 }
 
-func (m *MockTicker) Publish(tick action.Tick) error {
+func (m *MockHeartbeat) Publish(tick action.Tick) error {
 	return nil
 }
 
-func (m *MockTicker) Receive(ctx context.Context) (<-chan action.Tick, error) {
+func (m *MockHeartbeat) Receive(ctx context.Context) (<-chan action.Tick, error) {
 	return m.ch, nil
 }
 
-func Run(counter *int32) func(ctx context.Context) error {
+func Run(counter *int32) action.Action {
 	return func(ctx context.Context) error {
 		atomic.AddInt32(counter, 1)
 		return nil
@@ -38,7 +32,7 @@ func Run(counter *int32) func(ctx context.Context) error {
 func TestSingleton(t *testing.T) {
 	ch := make(chan action.Tick)
 	defer close(ch)
-	mock := &MockTicker{
+	mock := &MockHeartbeat{
 		ch: ch,
 	}
 
@@ -59,12 +53,13 @@ func TestSingleton(t *testing.T) {
 	}()
 
 	invocations := int32(0)
-	fn1 := action.Singleton(mock, Run(&invocations),
+	a := Run(&invocations)
+	singleton := action.Singleton(mock,
 		action.WithInterval(interval),
 		action.WithElections(interval*3),
 		action.WithLease(interval*10),
 	)
-	err := fn1(ctx)
+	err := a.Use(singleton).Do(ctx)
 	assert.Nil(t, err)
 	assert.True(t, invocations > 5)
 }

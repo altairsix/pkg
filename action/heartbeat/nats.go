@@ -1,4 +1,4 @@
-package ticker
+package heartbeat
 
 import (
 	"context"
@@ -9,12 +9,12 @@ import (
 	"github.com/nats-io/go-nats"
 )
 
-type natsTicker struct {
+type natsHeartbeat struct {
 	nc      *nats.Conn
 	subject string
 }
 
-func (n *natsTicker) Publish(tick action.Tick) error {
+func (n *natsHeartbeat) Publish(tick action.Tick) error {
 	data, err := json.Marshal(tick)
 	if err != nil {
 		return err
@@ -23,7 +23,7 @@ func (n *natsTicker) Publish(tick action.Tick) error {
 	return n.nc.Publish(n.subject, data)
 }
 
-func (n *natsTicker) Receive(ctx context.Context) (<-chan action.Tick, error) {
+func (n *natsHeartbeat) Receive(ctx context.Context) (<-chan action.Tick, error) {
 	ch := make(chan action.Tick, 16)
 	open := int32(1)
 
@@ -51,8 +51,8 @@ func (n *natsTicker) Receive(ctx context.Context) (<-chan action.Tick, error) {
 	return ch, nil
 }
 
-func Nats(nc *nats.Conn, subject string) action.Ticker {
-	return &natsTicker{
+func Nats(nc *nats.Conn, subject string) action.Heartbeat {
+	return &natsHeartbeat{
 		nc:      nc,
 		subject: subject,
 	}

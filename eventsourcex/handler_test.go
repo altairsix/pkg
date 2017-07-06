@@ -62,7 +62,7 @@ func TestMessageHandlerInFlight(t *testing.T) {
 		defer h.Close()
 
 		// When
-		h.Handle(0, nil)
+		h.Receive(0, nil)
 		time.Sleep(time.Millisecond)
 
 		// Then
@@ -101,7 +101,7 @@ func TestMessageHandlerInterval(t *testing.T) {
 
 		// When
 		startedAt := time.Now()
-		h.Handle(0, nil)
+		h.Receive(0, nil)
 		<-received
 		assert.True(t, time.Now().Sub(startedAt) < time.Second)
 	})
@@ -134,7 +134,7 @@ func TestMessageHandler(t *testing.T) {
 
 		// When
 		startedAt := time.Now()
-		h.Handle(0, nil)
+		h.Receive(0, nil)
 		<-received
 		assert.True(t, time.Now().Sub(startedAt) < time.Millisecond*50)
 	})

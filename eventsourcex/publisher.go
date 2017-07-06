@@ -9,7 +9,7 @@ import (
 
 	"github.com/altairsix/eventsource"
 	"github.com/altairsix/pkg/action"
-	"github.com/altairsix/pkg/action/ticker"
+	"github.com/altairsix/pkg/action/heartbeat"
 	"github.com/altairsix/pkg/checkpoint"
 	"github.com/altairsix/pkg/tracer"
 	"github.com/nats-io/go-nats"
@@ -259,8 +259,7 @@ func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.Stre
 	segment.SetBaggageItem("subject", StreamSubject(env, bc))
 	defer segment.Finish()
 
-	t := ticker.Nats(nc, makeTickerSubject(env, bc))
-	fn := action.Singleton(t, func(ctx context.Context) error {
+	a := func(ctx context.Context) error {
 		h := WithPublishEvents(p, nc, env, bc)              // publish events to here
 		supervisor := PublishStream(ctx, h, r, cp, env, bc) // go!
 		if env == "local" {                                 // in the local env
@@ -269,9 +268,10 @@ func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.Stre
 		supervisor = WithReceiveNotifications(supervisor, nc, env, bc) // ping the supervisor when events received
 		<-supervisor.Done()                                            // wait until done
 		return nil
-	})
+	}
+	filter := action.Singleton(heartbeat.Nats(nc, makeTickerSubject(env, bc)))
 
-	return fn(ctx)
+	return filter.AndThen(a).Do(ctx)
 }
 
 func makeCheckpointKey(env, bc string) string {
