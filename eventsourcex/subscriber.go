@@ -42,7 +42,7 @@ func SubscribeStream(ctx context.Context, nc *nats.Conn, cp Checkpointer, env, b
 	}
 
 	fn := func(m *stan.Msg) {
-		h.Handle(m.Sequence, m.Data)
+		h.Receive(m.Sequence, m.Data)
 	}
 	sub, err := st.Subscribe(subject, fn, stan.StartAtSequence(sequence))
 	if err != nil {

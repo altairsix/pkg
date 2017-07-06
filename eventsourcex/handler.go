@@ -6,6 +6,7 @@ import (
 
 	"github.com/altairsix/eventsource"
 	nats "github.com/nats-io/go-nats"
+	"github.com/opentracing/opentracing-go/log"
 	"github.com/pkg/errors"
 )
 
@@ -20,15 +21,24 @@ func (fn Processor) Do(ctx context.Context, events ...eventsource.Event) error {
 // Handler provides the business end of the MessageHandler struct
 type Handler interface {
 	// Handle receives the inbound message
-	Handle(offset uint64, data []byte)
+	Receive(offset uint64, data []byte)
 }
 
 // HandlerFunc provides a func wrapper for Handler
 type HandlerFunc func(offset uint64, data []byte)
 
 // Handle implements the Handle interface
-func (fn HandlerFunc) Handle(offset uint64, data []byte) {
+func (fn HandlerFunc) Receive(offset uint64, data []byte) {
 	fn(offset, data)
+}
+
+func WithLogging(h Handler, logger interface {
+	Info(string, ...log.Field)
+}) HandlerFunc {
+	return func(offset uint64, data []byte) {
+		logger.Info("handler:received", log.Uint64("offset", offset))
+		h.Receive(offset, data)
+	}
 }
 
 // WithSendNotices publishes an event to the notices subject if the processor executes successfully
@@ -173,7 +183,7 @@ func (m *MessageHandler) start() {
 }
 
 // Handle the the specified stream record
-func (m *MessageHandler) Handle(offset uint64, data []byte) {
+func (m *MessageHandler) Receive(offset uint64, data []byte) {
 	m.ch <- &message{
 		offset: offset,
 		data:   data,

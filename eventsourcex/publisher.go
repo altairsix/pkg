@@ -2,6 +2,8 @@ package eventsourcex
 
 import (
 	"context"
+	"io"
+	"io/ioutil"
 	"strings"
 	"time"
 
@@ -34,6 +36,16 @@ type PublisherFunc func(record eventsource.StreamRecord) error
 // Publish Implements the Publisher interface
 func (fn PublisherFunc) Publish(record eventsource.StreamRecord) error { return fn(record) }
 
+// WithLogPublish logs when events are published
+func WithLogPublish(publisher Publisher, logger interface {
+	Info(string, ...log.Field)
+}) PublisherFunc {
+	return func(record eventsource.StreamRecord) error {
+		logger.Info("publisher:publish", log.String("id", record.AggregateID))
+		return publisher.Publish(record)
+	}
+}
+
 // Supervisor reads events from a StreamReader and supervisor them to a handler
 type Supervisor interface {
 	Check()
@@ -42,6 +54,7 @@ type Supervisor interface {
 }
 
 type supervisor struct {
+	w               io.Writer
 	ctx             context.Context
 	cancel          func()
 	done            chan struct{}
@@ -80,27 +93,32 @@ func (s *supervisor) Done() <-chan struct{} {
 }
 
 func (s *supervisor) checkOnce() {
-	segment, ctx := tracer.NewSegment(s.ctx, "supervisor:check_once")
+	segment, ctx := tracer.NewSegment(s.ctx, "supervisor:check_once", log.String("checkpoint-key", s.cpKey))
 	defer segment.Finish()
 
 	if !s.offsetLoaded {
 		v, err := s.cp.Load(ctx, s.cpKey)
 		if err != nil {
+			segment.LogFields(log.Error(err), log.String("text", "unable to load checkpoint key"))
 			return
 		}
 		s.offset = v
 		s.offsetLoaded = true
+
+		segment.Info("supervisor:checkpoint_loaded", log.Uint64("offset", s.offset))
 	}
 
 	// read  events
 	events, err := s.r.Read(ctx, s.offset+1, s.recordCount)
 	if err != nil {
+		segment.LogFields(log.Error(err), log.String("text", "unable to read events from StreamReder"))
 		return
 	}
 
 	// publish  events
 	for _, event := range events {
 		if err := s.h.Publish(event); err != nil {
+			segment.LogFields(log.Error(err), log.String("text", "unable to publish events"))
 			return
 		}
 
@@ -160,6 +178,7 @@ func PublishStream(ctx context.Context, h Publisher, r eventsource.StreamReader,
 
 	child, cancel := context.WithCancel(ctx)
 	s := &supervisor{
+		w:           ioutil.Discard,
 		ctx:         child,
 		cancel:      cancel,
 		done:        make(chan struct{}),
@@ -244,8 +263,8 @@ func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.Stre
 	fn := action.Singleton(t, func(ctx context.Context) error {
 		h := WithPublishEvents(p, nc, env, bc)              // publish events to here
 		supervisor := PublishStream(ctx, h, r, cp, env, bc) // go!
-		if env == "local" {
-			supervisor = WithTraceReceiveNotices(supervisor, segment)
+		if env == "local" {                                 // in the local env
+			supervisor = WithTraceReceiveNotices(supervisor, segment) // configuration addition logging
 		}
 		supervisor = WithReceiveNotifications(supervisor, nc, env, bc) // ping the supervisor when events received
 		<-supervisor.Done()                                            // wait until done
