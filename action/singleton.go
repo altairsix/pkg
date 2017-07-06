@@ -23,7 +23,6 @@ type singleton struct {
 	interval  time.Duration
 	elections time.Duration
 	lease     time.Duration
-	restarts  int
 }
 
 type SingletonOption func(*singleton)
@@ -43,15 +42,6 @@ func WithElections(d time.Duration) SingletonOption {
 func WithLease(d time.Duration) SingletonOption {
 	return func(s *singleton) {
 		s.lease = d
-	}
-}
-
-// WithRestarts defines the number of times the action should be
-// restarted; restarts >= 0 represents the number of restarts before
-// returning; -1 means always restart; defaults to 0
-func WithRestarts(restarts int) SingletonOption {
-	return func(s *singleton) {
-		s.restarts = restarts
 	}
 }
 
@@ -82,25 +72,23 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 				return err
 			}
 
-			leader := false
-			restarts := 0
-
-			var child context.Context
 			var finished chan error
 			cancel := func() {}
 
+			leader := false
 			leases := make([]time.Time, 0, 12)
 
 			t := time.NewTicker(jitter(cfg.interval))
 			defer t.Stop()
 
-			elect := time.NewTicker(cfg.elections)
-			defer elect.Stop()
+			election := time.NewTicker(cfg.elections)
+			defer election.Stop()
 
 			run := func() {
 				finished = make(chan error, 1) // done is scoped to our parent
 				defer close(finished)
 
+				var child context.Context
 				child, cancel = context.WithCancel(ctx) // child and cancel are also both scoped to our parent
 				defer cancel()
 
@@ -134,53 +122,29 @@ func Singleton(heartbeat Heartbeat, opts ...SingletonOption) Filter {
 					}
 					if leader && len(leases) > 0 {
 						segment.Info("singleton:lost_leadership")
-						leader = false
-						restarts = 0
 						cancel()
 					}
 
 				case err := <-finished:
 					if err != nil {
 						segment.LogFields(log.Error(err))
-						return err
 					}
+					return err
 
+				case <-election.C:
 					if leader {
-						restarts++
-						if cfg.restarts >= 0 && restarts > cfg.restarts {
-							return err
-						}
-						delay := cfg.interval
-						if restarts > 100 {
-							delay = time.Minute * 15
-						} else if restarts > 20 {
-							delay = time.Minute * 3
-						}
-						delay = jitter(delay)
-						segment.Info("singleton:restart",
-							log.Int("restarts", restarts),
-							log.Int64("delay-ms", int64(delay/time.Millisecond)),
-						)
-
-						select {
-						case <-ctx.Done():
-							return nil
-						case <-time.After(delay):
-						}
-
-						go run()
-					}
-
-				case <-elect.C:
-					if count := len(leases); (leader && count == 0) || (!leader && count > 0) {
 						continue
 					}
 
-					if !leader {
-						segment.Info("singleton:elected_leader")
-						leader = true
-						go run()
+					if count := len(leases); count != 0 {
+						cancel()
+						return nil
 					}
+
+					segment.Info("singleton:elected_leader")
+					go run()
+
+					leader = true
 				}
 			}
 		}

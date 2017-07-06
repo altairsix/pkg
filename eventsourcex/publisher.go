@@ -259,7 +259,7 @@ func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.Stre
 	segment.SetBaggageItem("subject", StreamSubject(env, bc))
 	defer segment.Finish()
 
-	a := func(ctx context.Context) error {
+	a := action.Action(func(ctx context.Context) error {
 		h := WithPublishEvents(p, nc, env, bc)              // publish events to here
 		supervisor := PublishStream(ctx, h, r, cp, env, bc) // go!
 		if env == "local" {                                 // in the local env
@@ -268,10 +268,11 @@ func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.Stre
 		supervisor = WithReceiveNotifications(supervisor, nc, env, bc) // ping the supervisor when events received
 		<-supervisor.Done()                                            // wait until done
 		return nil
-	}
-	filter := action.Singleton(heartbeat.Nats(nc, makeTickerSubject(env, bc)))
+	})
+	singleton := action.Singleton(heartbeat.Nats(nc, makeTickerSubject(env, bc)))
+	forever := action.Forever(time.Second * 3)
 
-	return filter.AndThen(a).Do(ctx)
+	return a.Use(singleton, forever).Do(ctx)
 }
 
 func makeCheckpointKey(env, bc string) string {

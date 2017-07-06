@@ -52,15 +52,21 @@ func TestSingleton(t *testing.T) {
 		mock.ch <- action.Tick{StartedAt: time.Now().Add(-time.Hour)}
 	}()
 
-	invocations := int32(0)
-	a := Run(&invocations)
+	calls := int32(0)
+	a := func(ctx context.Context) error {
+		atomic.AddInt32(&calls, 1)
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Minute):
+		}
+		return nil
+	}
 	singleton := action.Singleton(mock,
-		action.WithRestarts(-1), // repeat forever
 		action.WithInterval(interval),
 		action.WithElections(interval*3),
 		action.WithLease(interval*10),
 	)
-	err := a.Use(singleton).Do(ctx)
+	err := singleton.AndThen(a).Do(ctx)
 	assert.Nil(t, err)
-	assert.True(t, invocations > 5, "expected at least 5 invocations, got %v", invocations)
+	assert.Equal(t, int32(1), calls)
 }
