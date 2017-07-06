@@ -13,8 +13,6 @@ import (
 	"github.com/nats-io/go-nats"
 	"github.com/nats-io/go-nats-streaming"
 	"github.com/opentracing/opentracing-go/log"
-	"github.com/pkg/errors"
-	"github.com/segmentio/ksuid"
 )
 
 const (
@@ -25,21 +23,32 @@ const (
 	DefaultPublishInterval = time.Minute
 )
 
-// Publisher reads events from a StreamReader and publisher them to a handler
+// Publisher publishes the record to a event bus
 type Publisher interface {
+	Publish(record eventsource.StreamRecord) error
+}
+
+// PublisherFunc provides a func wrapper to Publisher
+type PublisherFunc func(record eventsource.StreamRecord) error
+
+// Publish Implements the Publisher interface
+func (fn PublisherFunc) Publish(record eventsource.StreamRecord) error { return fn(record) }
+
+// Supervisor reads events from a StreamReader and supervisor them to a handler
+type Supervisor interface {
 	Check()
 	Close() error
 	Done() <-chan struct{}
 }
 
-type publisher struct {
+type supervisor struct {
 	ctx             context.Context
 	cancel          func()
 	done            chan struct{}
 	check           chan struct{}
 	segment         tracer.Segment
 	r               eventsource.StreamReader
-	h               func(eventsource.StreamRecord) error
+	h               Publisher
 	cpKey           string
 	cp              *checkpoint.CP
 	interval        time.Duration
@@ -51,90 +60,90 @@ type publisher struct {
 }
 
 // Close stops the worker process
-func (p *publisher) Close() error {
-	p.cancel()
-	<-p.done
+func (s *supervisor) Close() error {
+	s.cancel()
+	<-s.done
 	return nil
 }
 
-// Check request a check from the publisher
-func (p *publisher) Check() {
+// Check request a check from the supervisor
+func (s *supervisor) Check() {
 	select {
-	case p.check <- struct{}{}:
+	case s.check <- struct{}{}:
 	default:
 	}
 }
 
-// Done allows external tools to signal off of when the publisher is done
-func (p *publisher) Done() <-chan struct{} {
-	return p.done
+// Done allows external tools to signal off of when the supervisor is done
+func (s *supervisor) Done() <-chan struct{} {
+	return s.done
 }
 
-func (p *publisher) checkOnce() {
-	segment, ctx := tracer.NewSegment(p.ctx, "publisher:check_once")
+func (s *supervisor) checkOnce() {
+	segment, ctx := tracer.NewSegment(s.ctx, "supervisor:check_once")
 	defer segment.Finish()
 
-	if !p.offsetLoaded {
-		v, err := p.cp.Load(ctx, p.cpKey)
+	if !s.offsetLoaded {
+		v, err := s.cp.Load(ctx, s.cpKey)
 		if err != nil {
 			return
 		}
-		p.offset = v
-		p.offsetLoaded = true
+		s.offset = v
+		s.offsetLoaded = true
 	}
 
 	// read  events
-	events, err := p.r.Read(ctx, p.offset+1, p.recordCount)
+	events, err := s.r.Read(ctx, s.offset+1, s.recordCount)
 	if err != nil {
 		return
 	}
 
 	// publish  events
 	for _, event := range events {
-		if err := p.h(event); err != nil {
+		if err := s.h.Publish(event); err != nil {
 			return
 		}
 
-		p.offset = event.Offset
+		s.offset = event.Offset
 	}
 
 	// time to commit?
-	if now := time.Now(); now.Sub(p.committedAt) > DefaultCommitInterval {
-		if err := p.cp.Save(ctx, p.cpKey, p.offset); err == nil {
-			p.committedAt = now
-			p.committedOffset = p.offset
+	if now := time.Now(); now.Sub(s.committedAt) > DefaultCommitInterval {
+		if err := s.cp.Save(ctx, s.cpKey, s.offset); err == nil {
+			s.committedAt = now
+			s.committedOffset = s.offset
 		}
 	}
 }
 
-func (p *publisher) listenAndPublish() {
-	defer close(p.done)
-	defer close(p.check)
-	defer p.segment.Finish()
+func (s *supervisor) listenAndPublish() {
+	defer close(s.done)
+	defer close(s.check)
+	defer s.segment.Finish()
 
-	p.segment.Info("publisher:started", log.String("interval", p.interval.String()))
+	s.segment.Info("supervisor:started", log.String("interval", s.interval.String()))
 
-	timer := time.NewTicker(p.interval)
+	timer := time.NewTicker(s.interval)
 	defer timer.Stop()
 
 	for {
 		select {
-		case <-p.ctx.Done():
+		case <-s.ctx.Done():
 			return
 		case <-timer.C:
-			p.checkOnce()
-		case <-p.check:
-			p.checkOnce()
+			s.checkOnce()
+		case <-s.check:
+			s.checkOnce()
 		}
 	}
 }
 
 // WithPublishEvents publishes received events to nats
-func WithPublishEvents(fn func(eventsource.StreamRecord) error, nc *nats.Conn, env, boundedContext string) func(eventsource.StreamRecord) error {
+func WithPublishEvents(fn Publisher, nc *nats.Conn, env, boundedContext string) PublisherFunc {
 	rootSubject := StreamSubject(env, boundedContext) + "."
 
 	return func(event eventsource.StreamRecord) error {
-		if err := fn(event); err != nil {
+		if err := fn.Publish(event); err != nil {
 			return err
 		}
 
@@ -145,12 +154,12 @@ func WithPublishEvents(fn func(eventsource.StreamRecord) error, nc *nats.Conn, e
 }
 
 // PublishStream reads from a stream and publishes
-func PublishStream(ctx context.Context, h func(eventsource.StreamRecord) error, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string) Publisher {
+func PublishStream(ctx context.Context, h Publisher, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string) Supervisor {
 	cpKey := makeCheckpointKey(env, bc)
 	segment, _ := tracer.NewSegment(ctx, "publish_stream", log.String("checkpoint", cpKey))
 
 	child, cancel := context.WithCancel(ctx)
-	p := &publisher{
+	p := &supervisor{
 		ctx:         child,
 		cancel:      cancel,
 		done:        make(chan struct{}),
@@ -170,14 +179,14 @@ func PublishStream(ctx context.Context, h func(eventsource.StreamRecord) error, 
 }
 
 type tracingPublisher struct {
-	target  Publisher
+	target  Supervisor
 	segment tracer.Segment
 }
 
-// WithTraceReceiveNotices returns a Publisher that ping when Check is invoked
-func WithTraceReceiveNotices(p Publisher, segment tracer.Segment) Publisher {
+// WithTraceReceiveNotices returns a Supervisor that ping when Check is invoked
+func WithTraceReceiveNotices(s Supervisor, segment tracer.Segment) Supervisor {
 	return &tracingPublisher{
-		target:  p,
+		target:  s,
 		segment: segment,
 	}
 }
@@ -189,18 +198,18 @@ func (s *tracingPublisher) Check() {
 	s.target.Check()
 }
 
-// WithReceiveNotifications listens to nats for notices on the StreamSubject and prods the publisher
-func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext string) Publisher {
+// WithReceiveNotifications listens to nats for notices on the StreamSubject and prods the supervisor
+func WithReceiveNotifications(s Supervisor, nc *nats.Conn, env, boundedContext string) Supervisor {
 	go func() {
 		subject := NoticesSubject(env, boundedContext)
 		fn := func(m *nats.Msg) {
-			p.Check()
+			s.Check()
 		}
 
 		var sub *nats.Subscription
 		for {
 			select {
-			case <-p.Done():
+			case <-s.Done():
 				return
 			default:
 			}
@@ -211,43 +220,35 @@ func WithReceiveNotifications(p Publisher, nc *nats.Conn, env, boundedContext st
 			}
 		}
 
-		<-p.Done()
+		<-s.Done()
 		sub.Unsubscribe()
 	}()
 
-	return p
+	return s
 }
 
 // PublishStan publishes events to the nats stream identified with the env and boundedContext
-func PublishStan(st stan.Conn, subject string) func(event eventsource.StreamRecord) error {
+func PublishStan(st stan.Conn, subject string) PublisherFunc {
 	return func(event eventsource.StreamRecord) error {
 		return st.Publish(subject, event.Data)
 	}
 }
 
 // PublishStreamSingleton is similar to PublishStream except that there may be only one running in the environment
-func PublishStreamSingleton(ctx context.Context, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string, nc *nats.Conn) error {
-	subject := StreamSubject(env, bc)
-
+func PublishStreamSingleton(ctx context.Context, p Publisher, r eventsource.StreamReader, cp *checkpoint.CP, env, bc string, nc *nats.Conn) error {
 	segment, ctx := tracer.NewSegment(ctx, "publish_stream")
-	segment.SetBaggageItem("subject", subject)
+	segment.SetBaggageItem("subject", StreamSubject(env, bc))
 	defer segment.Finish()
-
-	st, err := stan.Connect(ClusterID, ksuid.New().String(), stan.NatsConn(nc))
-	if err != nil {
-		return errors.Wrapf(err, "unable to connec to nats streaming for subject, %v", subject)
-	}
 
 	t := ticker.Nats(nc, makeTickerSubject(env, bc))
 	fn := action.Singleton(t, func(ctx context.Context) error {
-		h := PublishStan(st, subject)
-		h = WithPublishEvents(h, nc, env, bc)              // publish events to here
-		publisher := PublishStream(ctx, h, r, cp, env, bc) // go!
+		h := WithPublishEvents(p, nc, env, bc)              // publish events to here
+		supervisor := PublishStream(ctx, h, r, cp, env, bc) // go!
 		if env == "local" {
-			publisher = WithTraceReceiveNotices(publisher, segment)
+			supervisor = WithTraceReceiveNotices(supervisor, segment)
 		}
-		publisher = WithReceiveNotifications(publisher, nc, env, bc) // ping the publisher when events received
-		<-publisher.Done()                                           // wait until done
+		supervisor = WithReceiveNotifications(supervisor, nc, env, bc) // ping the supervisor when events received
+		<-supervisor.Done()                                            // wait until done
 		return nil
 	})
 

@@ -17,10 +17,10 @@ import (
 
 func TestPublisher(t *testing.T) {
 	received := []eventsource.StreamRecord{}
-	h := func(record eventsource.StreamRecord) error {
+	h := eventsourcex.PublisherFunc(func(record eventsource.StreamRecord) error {
 		received = append(received, record)
 		return nil
-	}
+	})
 
 	records := []eventsource.StreamRecord{
 		{
@@ -105,7 +105,8 @@ func TestPublishEvents(t *testing.T) {
 	assert.Nil(t, err)
 	defer sub.Unsubscribe()
 
-	h := eventsourcex.WithPublishEvents(func(eventsource.StreamRecord) error { return nil }, nc, env, bc)
+	p := eventsourcex.PublisherFunc(func(eventsource.StreamRecord) error { return nil })
+	h := eventsourcex.WithPublishEvents(p, nc, env, bc)
 	err = h(eventsource.StreamRecord{
 		AggregateID: id,
 		Record: eventsource.Record{
