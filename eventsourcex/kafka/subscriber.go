@@ -38,46 +38,47 @@ func (s *Subscription) Shutdown(ctx context.Context) error {
 // SubscribeStream subscribes a message handler to the specified Kafka topic
 func SubscribeStream(ctx context.Context, consumer sarama.Consumer, topic string, h eventsourcex.Handler) (*Subscription, error) {
 	child, cancel := context.WithCancel(ctx)
-	segment, child := tracer.NewSegment(child, "kafka:subscription", log.String("topic", topic))
 
 	partitions, err := consumer.Partitions(topic)
 	if err != nil {
 		cancel()
-		segment.LogFields(log.Error(err))
-		segment.Finish()
 		return nil, errors.Wrapf(err, "unable to find partitions for topic, %v", topic)
 	}
-	segment.Info("kafka:partitions", log.Int("partition-count", len(partitions)))
 
 	wg := &sync.WaitGroup{}
 	wg.Add(len(partitions))
 	for _, partition := range partitions {
-		segment.Info("kafka:consuming_partition", log.Int32("partition", partition))
-		c, err := consumer.ConsumePartition(topic, partition, sarama.OffsetNewest)
-		if err != nil {
-			cancel()
-			segment.LogFields(log.Error(err))
-			segment.Finish()
-			return nil, errors.Wrapf(err, "unable to consumer topic:partition, %v:%v", topic, partition)
-		}
-
-		go func() {
-			defer c.Close()
-			<-child.Done()
-		}()
-
-		go func() {
+		go func(partition int32) {
+			defer cancel()
 			defer wg.Done()
-			for message := range c.Messages() {
-				h.Receive(uint64(message.Offset), message.Value)
+
+			segment, child := tracer.NewSegment(child, "kafka:consume_partition", log.Int32("partition", partition))
+			defer segment.Finish()
+
+			c, err := consumer.ConsumePartition(topic, partition, sarama.OffsetNewest)
+			if err != nil {
+				segment.LogFields(log.Error(err), log.String("text", "unable to consume topic partition"))
+				return
 			}
-		}()
+			defer c.Close()
+
+			for {
+				select {
+				case <-child.Done():
+					return
+				case message, ok := <-c.Messages():
+					if !ok {
+						return // channel closed
+					}
+					h.Receive(uint64(message.Offset), message.Value)
+				}
+			}
+		}(partition)
 	}
 
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		defer segment.Finish()
 		wg.Wait()
 	}()
 

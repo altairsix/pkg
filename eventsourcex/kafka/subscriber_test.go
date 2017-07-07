@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/altairsix/pkg/eventsourcex"
@@ -81,6 +82,7 @@ func TestSubscriber(t *testing.T) {
 	if !assert.Nil(t, err) {
 		return
 	}
+	time.Sleep(time.Millisecond * 100)
 	sub.Shutdown(ctx)
 	assert.Equal(t, 1, receivedCount)
 }
