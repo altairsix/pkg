@@ -107,3 +107,28 @@ func Text(value string) log.Field {
 func Subject(value string) log.Field {
 	return log.String("subject", value)
 }
+
+// Bool records primitive booleans
+func Bool(key string, value bool) log.Field {
+	return log.Bool(key, value)
+}
+
+// Int64 records primitive int64
+func Int64(key string, value int64) log.Field {
+	return log.Int64(key, value)
+}
+
+// Int32 records primitive int32
+func Int32(key string, value int32) log.Field {
+	return log.Int32(key, value)
+}
+
+// Float64 records primitive float64
+func Float64(key string, value float64) log.Field {
+	return log.Float64(key, value)
+}
+
+// Float32 records primitive int32
+func Float32(key string, value float32) log.Field {
+	return log.Float32(key, value)
+}
