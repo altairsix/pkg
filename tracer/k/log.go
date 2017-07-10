@@ -90,3 +90,20 @@ func Value(in interface{}) log.Field {
 func String(key, value string) log.Field {
 	return log.String(key, value)
 }
+
+// Int logs a key and value
+func Int(key string, value int) log.Field {
+	return log.Int(key, value)
+}
+
+// Text logs a string with the key text; useful for messages which are
+// not intended to be read except by humans
+func Text(value string) log.Field {
+	return log.String("text", value)
+}
+
+// Subject references the nats subject the message was sent to or
+// received from
+func Subject(value string) log.Field {
+	return log.String("subject", value)
+}
