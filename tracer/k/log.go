@@ -85,3 +85,8 @@ func Value(in interface{}) log.Field {
 		panic(fmt.Sprintf("unhandled type, %v", in))
 	}
 }
+
+// String logs a key and value
+func String(key, value string) log.Field {
+	return log.String(key, value)
+}
