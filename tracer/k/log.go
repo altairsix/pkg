@@ -1,7 +1,6 @@
 package k
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/altairsix/pkg/types"
@@ -82,7 +81,7 @@ func Value(in interface{}) log.Field {
 	case float64:
 		return log.Float64("value", v)
 	default:
-		panic(fmt.Sprintf("unhandled type, %v", in))
+		return log.String("value", "???")
 	}
 }
 
