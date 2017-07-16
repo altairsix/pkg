@@ -18,8 +18,25 @@ type Config struct {
 	VerifyTLS  bool
 }
 
-func (c Config) tlsEnabled() bool {
+func (c *Config) tlsEnabled() bool {
 	return c.CertPEM != nil && c.KeyPEM != nil && c.CaPEM != nil
+}
+
+// Build uses the config to construct a new *sarama.Config.  For now the *Config
+// only provides support for TLS sarama connections
+func (c *Config) Build() (*sarama.Config, error) {
+	config := sarama.NewConfig()
+
+	if c.tlsEnabled() {
+		tlsConfig, err := createTLSConfiguration(c)
+		if err != nil {
+			return nil, err
+		}
+		config.Net.TLS.Config = tlsConfig
+		config.Net.TLS.Enable = true
+	}
+
+	return config, nil
 }
 
 func getBytes(name string) []byte {
@@ -82,19 +99,14 @@ func Producer(cfg *Config, opts ...Option) (sarama.SyncProducer, error) {
 	// For the data collector, we are looking for strong consistency semantics.
 	// Because we don't change the flush settings, sarama will try to produce messages
 	// as fast as possible to keep latency low.
-	config := sarama.NewConfig()
+	config, err := cfg.Build()
+	if err != nil {
+		return nil, err
+	}
+
 	config.Producer.RequiredAcks = sarama.WaitForAll // Wait for all in-sync replicas to ack the message
 	config.Producer.Retry.Max = 10                   // Retry up to 10 times to produce the message
 	config.Producer.Return.Successes = true
-
-	if cfg.tlsEnabled() {
-		tlsConfig, err := createTLSConfiguration(cfg)
-		if err != nil {
-			return nil, err
-		}
-		config.Net.TLS.Config = tlsConfig
-		config.Net.TLS.Enable = true
-	}
 
 	for _, opt := range opts {
 		opt(config)
@@ -115,15 +127,9 @@ func Producer(cfg *Config, opts ...Option) (sarama.SyncProducer, error) {
 
 // Consumer creates a new kafka sync producer
 func Consumer(cfg *Config, opts ...Option) (sarama.Consumer, error) {
-	config := sarama.NewConfig()
-
-	if cfg.tlsEnabled() {
-		tlsConfig, err := createTLSConfiguration(cfg)
-		if err != nil {
-			return nil, err
-		}
-		config.Net.TLS.Config = tlsConfig
-		config.Net.TLS.Enable = true
+	config, err := cfg.Build()
+	if err != nil {
+		return nil, err
 	}
 
 	for _, opt := range opts {
