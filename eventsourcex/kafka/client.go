@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/Shopify/sarama"
+	cluster "github.com/bsm/sarama-cluster"
+	"github.com/pkg/errors"
 )
 
 // Config contains the configuration parameters for the kafka producer
@@ -22,21 +24,19 @@ func (c *Config) tlsEnabled() bool {
 	return c.CertPEM != nil && c.KeyPEM != nil && c.CaPEM != nil
 }
 
-// Build uses the config to construct a new *sarama.Config.  For now the *Config
-// only provides support for TLS sarama connections
-func (c *Config) Build() (*sarama.Config, error) {
-	config := sarama.NewConfig()
-
+// Apply applies the kafka.Config to the sarama.Config provided.
+// Currently only provides support for TLS sarama connections
+func (c *Config) Apply(config *sarama.Config) error {
 	if c.tlsEnabled() {
 		tlsConfig, err := createTLSConfiguration(c)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		config.Net.TLS.Config = tlsConfig
 		config.Net.TLS.Enable = true
 	}
 
-	return config, nil
+	return nil
 }
 
 func getBytes(name string) []byte {
@@ -99,8 +99,8 @@ func Producer(cfg *Config, opts ...Option) (sarama.SyncProducer, error) {
 	// For the data collector, we are looking for strong consistency semantics.
 	// Because we don't change the flush settings, sarama will try to produce messages
 	// as fast as possible to keep latency low.
-	config, err := cfg.Build()
-	if err != nil {
+	config := sarama.NewConfig()
+	if err := cfg.Apply(config); err != nil {
 		return nil, err
 	}
 
@@ -127,8 +127,8 @@ func Producer(cfg *Config, opts ...Option) (sarama.SyncProducer, error) {
 
 // Consumer creates a new kafka sync producer
 func Consumer(cfg *Config, opts ...Option) (sarama.Consumer, error) {
-	config, err := cfg.Build()
-	if err != nil {
+	config := sarama.NewConfig()
+	if err := cfg.Apply(config); err != nil {
 		return nil, err
 	}
 
@@ -137,4 +137,28 @@ func Consumer(cfg *Config, opts ...Option) (sarama.Consumer, error) {
 	}
 
 	return sarama.NewConsumer(cfg.BrokerList, config)
+}
+
+// ClusterConsumer creates a clustered kafka consumer that uses kafka's built in offset tracking mechanism
+// to manage offsets.
+func ClusterConsumer(cfg *Config, consumerGroup string, topics []string, opts ...Option) (*cluster.Consumer, error) {
+	config := cluster.NewConfig()
+	if err := cfg.Apply(&config.Config); err != nil {
+		return nil, err
+	}
+
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	config.Consumer.Return.Errors = true
+	config.Group.Return.Notifications = true
+
+	for _, opt := range opts {
+		opt(&config.Config)
+	}
+
+	consumer, err := cluster.NewConsumer(cfg.BrokerList, consumerGroup, topics, config)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to create clustered kafka consumer for topics, %v", topics)
+	}
+
+	return consumer, nil
 }
