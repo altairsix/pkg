@@ -21,6 +21,8 @@ services:
     image: wurstmeister/kafka
     ports:
       - "9092:9092"
+    depends_on:
+      - "zookeeper"
     environment:
       KAFKA_BROKER_ID: 0
       KAFKA_ADVERTISED_HOST_NAME: 172.19.131.93
