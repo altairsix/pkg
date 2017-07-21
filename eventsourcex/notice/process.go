@@ -23,7 +23,7 @@ func (fn HandlerFunc) Process(ctx context.Context, notice Message) {
 // the channel is closed.
 //
 // Process guarantees that only one invocation of a Handler will operate upon a given aggregateID at a time
-func Process(ctx context.Context, ch <-chan Message, handler Handler) {
+func Process(ctx context.Context, ch <-chan MessageCloser, handler Handler) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -65,7 +65,7 @@ func Process(ctx context.Context, ch <-chan Message, handler Handler) {
 				inFlight[id] = struct{}{}
 				atomic.AddInt32(&inFlightCount, 1)
 
-				go func(m Message) {
+				go func(m MessageCloser) {
 					defer func() { atomic.AddInt32(&inFlightCount, -1) }()
 					defer func() { finished <- m.AggregateID() }()
 					defer m.Close()
@@ -77,6 +77,6 @@ func Process(ctx context.Context, ch <-chan Message, handler Handler) {
 }
 
 // ProcessFunc provides a convenience func wrapper around Process
-func ProcessFunc(ctx context.Context, ch <-chan Message, h HandlerFunc) {
+func ProcessFunc(ctx context.Context, ch <-chan MessageCloser, h HandlerFunc) {
 	Process(ctx, ch, h)
 }

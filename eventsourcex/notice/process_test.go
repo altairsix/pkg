@@ -22,7 +22,7 @@ func (n Message) Close() error {
 
 func TestProcessFunc(t *testing.T) {
 	message := Message{ID: "abc"}
-	ch := make(chan notice.Message, 1)
+	ch := make(chan notice.MessageCloser, 1)
 	ch <- message
 	close(ch)
 
