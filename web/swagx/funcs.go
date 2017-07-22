@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"reflect"
+	"time"
 
 	"github.com/altairsix/pkg/web"
 	"github.com/pkg/errors"
@@ -76,7 +77,7 @@ func Func(fn interface{}) endpoint.Option {
 	}
 }
 
-func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
+func Handler(receiver reflect.Value, method reflect.Method, timeout time.Duration) web.HandlerFunc {
 	inCount := method.Type.NumIn()
 	contextType := reflect.TypeOf((*context.Context)(nil)).Elem()
 
@@ -86,7 +87,10 @@ func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
 		in := make([]reflect.Value, 0, inCount)
 		in = append(in, receiver)
 		if inCount >= 2 && method.Type.In(1).Implements(contextType) {
-			in = append(in, reflect.ValueOf(c.Request().Context()))
+			ctx, cancel := context.WithTimeout(c.Request().Context(), timeout)
+			defer cancel()
+
+			in = append(in, reflect.ValueOf(ctx))
 		}
 		if argType := method.Type.In(inCount - 1); inCount >= 2 && !argType.Implements(contextType) {
 			for argType.Kind() == reflect.Ptr {
@@ -124,7 +128,7 @@ func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
 	}
 }
 
-func Endpoints(prefix string, receiver interface{}, options ...endpoint.Option) ([]*swagger.Endpoint, error) {
+func Endpoints(prefix string, receiver interface{}, timeout time.Duration, options ...endpoint.Option) ([]*swagger.Endpoint, error) {
 	t := reflect.TypeOf(receiver)
 	if t.Kind() != reflect.Struct && (t.Kind() == reflect.Ptr && t.Elem().Kind() != reflect.Struct) {
 		return nil, fmt.Errorf("Bind only accepts struct types")
@@ -139,7 +143,7 @@ func Endpoints(prefix string, receiver interface{}, options ...endpoint.Option) 
 		opts := append([]endpoint.Option(nil), options...)
 		opts = append(opts,
 			Func(method.Func.Interface()),
-			endpoint.Handler(Handler(reflect.ValueOf(receiver), method)),
+			endpoint.Handler(Handler(reflect.ValueOf(receiver), method, timeout)),
 		)
 		e := endpoint.New(http.MethodPost, path, "Automatically generated", opts...)
 		endpoints = append(endpoints, e)

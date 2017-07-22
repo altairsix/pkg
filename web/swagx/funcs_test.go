@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/altairsix/pkg/web/swagx"
 	"github.com/altairsix/pkg/web/webmock"
@@ -21,7 +22,7 @@ type Output struct {
 type Foo struct {
 }
 
-func (f *Foo) Public(in Input) Output {
+func (f *Foo) Public(in *Input) Output {
 	return Output{Out: "hello " + in.In}
 }
 
@@ -30,7 +31,7 @@ func (f *Foo) private(Input) Output {
 }
 
 func TestBind(t *testing.T) {
-	e, err := swagx.Endpoints("/api/", &Foo{})
+	e, err := swagx.Endpoints("/api/", &Foo{}, time.Second)
 	assert.Nil(t, err)
 	assert.Len(t, e, 1)
 	assert.Equal(t, "/api/Public", e[0].Path)
@@ -55,7 +56,7 @@ func TestHandler(t *testing.T) {
 		t.Run(label, func(t *testing.T) {
 			method, ok := reflect.TypeOf(tc.Receiver).MethodByName(tc.Method)
 			assert.True(t, ok)
-			h := swagx.Handler(reflect.ValueOf(tc.Receiver), method)
+			h := swagx.Handler(reflect.ValueOf(tc.Receiver), method, time.Second)
 
 			c := webmock.NewContext(webmock.WithBodyString(tc.In))
 			err := h(c)
