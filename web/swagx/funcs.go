@@ -28,8 +28,8 @@ func configInput(b *endpoint.Builder, t reflect.Type) bool {
 
 	} else if count == 2 || (count == 3 && t.In(1).Implements(contextType)) {
 		b.Endpoint.Method = http.MethodPost
-		in := t.In(t.NumIn() - 1)
-		endpoint.Body(reflect.New(in).Interface(), "body", true).Apply(b)
+		body := t.In(t.NumIn() - 1)
+		endpoint.BodyType(body, "body", true).Apply(b)
 
 	} else {
 		b.Endpoint.Summary = "*ERROR* input arguments must either be (), (context.Context), (context.Context, T)"
@@ -56,8 +56,8 @@ func configOutput(b *endpoint.Builder, t reflect.Type) {
 		return
 	}
 
-	out := t.Out(t.NumOut() - 1)
-	endpoint.Response(http.StatusOK, reflect.New(out).Interface(), "success").Apply(b)
+	out := t.Out(0)
+	endpoint.ResponseType(http.StatusOK, out, "success").Apply(b)
 }
 
 // Func accepts a function and generates a swagger definition for function.
@@ -123,7 +123,7 @@ func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
 	}
 }
 
-func Endpoints(prefix string, receiver interface{}) ([]*swagger.Endpoint, error) {
+func Endpoints(prefix string, receiver interface{}, options ...endpoint.Option) ([]*swagger.Endpoint, error) {
 	t := reflect.TypeOf(receiver)
 	if t.Kind() != reflect.Struct && (t.Kind() == reflect.Ptr && t.Elem().Kind() != reflect.Struct) {
 		return nil, fmt.Errorf("Bind only accepts struct types")
@@ -134,11 +134,13 @@ func Endpoints(prefix string, receiver interface{}) ([]*swagger.Endpoint, error)
 	for i := 0; i < t.NumMethod(); i++ {
 		method := t.Method(i)
 		path := filepath.Join(prefix, method.Name)
-		e := endpoint.New(http.MethodPost, path, "Automatically generated",
+
+		opts := append([]endpoint.Option(nil), options...)
+		opts = append(opts,
 			Func(method.Func.Interface()),
 			endpoint.Handler(Handler(reflect.ValueOf(receiver), method)),
-			endpoint.Tags("default"),
 		)
+		e := endpoint.New(http.MethodPost, path, "Automatically generated", opts...)
 		endpoints = append(endpoints, e)
 	}
 
