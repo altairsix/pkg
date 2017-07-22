@@ -9,11 +9,11 @@ import (
 )
 
 // Log provides the standardized logging service for nats queries
-func Log(service string) nats_protobuf.Filter {
+func Log(bc string) nats_protobuf.Filter {
 	return func(fn nats_protobuf.HandlerFunc) nats_protobuf.HandlerFunc {
 		return func(ctx context.Context, m *nats_protobuf.Message) (*nats_protobuf.Message, error) {
-			segment, ctx := tracer.NewSegment(ctx, m.Method,
-				k.String("service", service),
+			segment, ctx := tracer.NewSegment(ctx, "nats.api",
+				k.String("bc", bc),
 				k.String("method", m.Method),
 			)
 			defer segment.Finish()
