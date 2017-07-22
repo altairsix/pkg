@@ -4,6 +4,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"io"
+
+	"io/ioutil"
+	"strings"
+
 	"github.com/altairsix/pkg/types"
 	"github.com/altairsix/pkg/web"
 )
@@ -15,6 +20,7 @@ type mock struct {
 	query    map[string]string
 	form     map[string]string
 	data     map[string]interface{}
+	body     io.ReadCloser
 }
 
 type Context interface {
@@ -60,6 +66,12 @@ func WithForm(key, value string) ContextOption {
 	}
 }
 
+func WithBodyString(content string) ContextOption {
+	return func(m *mock) {
+		m.body = ioutil.NopCloser(strings.NewReader(content))
+	}
+}
+
 func WithValue(key string, value interface{}) ContextOption {
 	return func(m *mock) {
 		if m.data == nil {
@@ -71,9 +83,7 @@ func WithValue(key string, value interface{}) ContextOption {
 }
 
 func NewContext(opts ...ContextOption) Context {
-	req, _ := http.NewRequest("GET", "/", nil)
 	m := &mock{
-		request:  req,
 		response: httptest.NewRecorder(),
 		route:    map[string]string{},
 		query:    map[string]string{},
@@ -83,6 +93,11 @@ func NewContext(opts ...ContextOption) Context {
 
 	for _, opt := range opts {
 		opt(m)
+	}
+
+	if m.request == nil {
+		req, _ := http.NewRequest("GET", "/", m.body)
+		m.request = req
 	}
 
 	return m
