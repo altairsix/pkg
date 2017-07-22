@@ -89,6 +89,10 @@ func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
 			in = append(in, reflect.ValueOf(c.Request().Context()))
 		}
 		if argType := method.Type.In(inCount - 1); inCount >= 2 && !argType.Implements(contextType) {
+			for argType.Kind() == reflect.Ptr {
+				argType = argType.Elem()
+			}
+
 			input := reflect.New(argType).Interface()
 			if body := c.Request().Body; body != nil {
 				if err := json.NewDecoder(c.Request().Body).Decode(input); err != nil {
@@ -97,9 +101,6 @@ func Handler(receiver reflect.Value, method reflect.Method) web.HandlerFunc {
 			}
 
 			inputValue := reflect.ValueOf(input)
-			if argType.Kind() != reflect.Ptr {
-				inputValue = inputValue.Elem()
-			}
 			in = append(in, inputValue)
 		}
 
