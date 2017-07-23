@@ -6,7 +6,9 @@ import (
 
 	"github.com/altairsix/eventsource"
 	"github.com/altairsix/pkg/eventsourcex"
+	"github.com/altairsix/pkg/tracer"
 	"github.com/nats-io/go-nats"
+	"github.com/opentracing/opentracing-go/log"
 )
 
 // WithConsistentRead provides a faux consistent read.  Should wrap WithNotifier to ensure that
@@ -21,6 +23,10 @@ func WithConsistentRead(repo eventsourcex.Repository, nc *nats.Conn, subject str
 		child, cancel := context.WithTimeout(ctx, timeout)
 		defer cancel()
 
+		segment := tracer.SegmentFromContext(ctx)
+		segment.Info("eventsource.publish_notice",
+			log.String("subject", subject),
+		)
 		nc.RequestWithContext(child, subject, []byte(cmd.AggregateID()))
 
 		return version, nil

@@ -12,7 +12,7 @@ import (
 func Log(bc string) nats_protobuf.Filter {
 	return func(fn nats_protobuf.HandlerFunc) nats_protobuf.HandlerFunc {
 		return func(ctx context.Context, subject string, m *nats_protobuf.Message) (*nats_protobuf.Message, error) {
-			segment, ctx := tracer.NewSegment(ctx, "nats.api",
+			segment, ctx := tracer.NewSegment(ctx, "nats.api_call",
 				k.String("subject", subject),
 				k.String("bc", bc),
 				k.String("method", m.Method),

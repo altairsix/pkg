@@ -2,6 +2,7 @@ package eventsourcex
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"time"
 
@@ -52,8 +53,17 @@ func (fn RepositoryFunc) Apply(ctx context.Context, cmd eventsource.Command) (in
 // WithTrace logs published events to the tracer
 func WithTrace(repo Repository) Repository {
 	return RepositoryFunc(func(ctx context.Context, cmd eventsource.Command) (int, error) {
-		segment, ctx := tracer.NewSegment(ctx, "repository:apply", log.String("id", cmd.AggregateID()))
+		t := reflect.TypeOf(cmd)
+		for t.Kind() == reflect.Ptr {
+			t = t.Elem()
+		}
+		name := t.Name()
+		segment, ctx := tracer.NewSegment(ctx, "eventsource.apply_command",
+			log.String("cmd", name),
+			log.String("id", cmd.AggregateID()),
+		)
 		defer segment.Finish()
+
 		return repo.Apply(ctx, cmd)
 	})
 }
@@ -72,6 +82,10 @@ func WithConsistentRead(repo Repository, nc *nats.Conn, env, boundedContext stri
 		child, cancel := context.WithTimeout(ctx, time.Second*5)
 		defer cancel()
 
+		segment := tracer.SegmentFromContext(ctx)
+		segment.Info("eventsource.publish_notice",
+			log.String("subject", subject),
+		)
 		nc.RequestWithContext(child, subject, []byte(cmd.AggregateID()))
 
 		return version, nil
