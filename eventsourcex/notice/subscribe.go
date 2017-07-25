@@ -47,7 +47,6 @@ func (m *message) AggregateID() string {
 // Subscribe listens for notices on the nats subject provided
 func Subscribe(ctx context.Context, nc *nats.Conn, subject string, bufferSize int) (<-chan MessageCloser, error) {
 	segment, _ := tracer.NewSegment(ctx, "nats.notice_listener")
-	defer segment.Finish()
 
 	ch := make(chan MessageCloser, bufferSize)
 	sub, err := nc.QueueSubscribe(subject, Group, func(msg *nats.Msg) {
@@ -66,6 +65,7 @@ func Subscribe(ctx context.Context, nc *nats.Conn, subject string, bufferSize in
 	}
 
 	go func() {
+		defer segment.Finish()
 		defer close(ch)
 		defer sub.Unsubscribe()
 		<-ctx.Done()
