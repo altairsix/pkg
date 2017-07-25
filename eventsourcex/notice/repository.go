@@ -24,8 +24,9 @@ func WithConsistentRead(repo eventsourcex.Repository, nc *nats.Conn, subject str
 		defer cancel()
 
 		segment := tracer.SegmentFromContext(ctx)
-		segment.Info("eventsource.publish_notice",
+		segment.Info("eventsource.notice_published",
 			log.String("subject", subject),
+			log.String("id", cmd.AggregateID()),
 		)
 		nc.RequestWithContext(child, subject, []byte(cmd.AggregateID()))
 

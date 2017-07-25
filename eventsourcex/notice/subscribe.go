@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/altairsix/pkg/tracer"
 	"github.com/nats-io/go-nats"
+	"github.com/opentracing/opentracing-go/log"
 	"github.com/pkg/errors"
 )
 
@@ -44,10 +46,17 @@ func (m *message) AggregateID() string {
 
 // Subscribe listens for notices on the nats subject provided
 func Subscribe(ctx context.Context, nc *nats.Conn, subject string, bufferSize int) (<-chan MessageCloser, error) {
+	segment, _ := tracer.NewSegment(ctx, "nats.notice_listener")
+	defer segment.Finish()
+
 	ch := make(chan MessageCloser, bufferSize)
 	sub, err := nc.QueueSubscribe(subject, Group, func(msg *nats.Msg) {
 		select {
 		case ch <- &message{nc: nc, msg: msg}:
+			segment.Info("nats.notice_received",
+				log.String("subject", msg.Subject),
+				log.String("id", string(msg.Data)),
+			)
 		default:
 		}
 	})
