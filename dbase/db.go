@@ -53,6 +53,7 @@ type Accessor interface {
 	Commit(*gorm.DB) *gorm.DB
 	Rollback(*gorm.DB) *gorm.DB
 	Tx(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error
+	ReadOnly(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error
 }
 
 type OpenFunc func() (*gorm.DB, error)
@@ -96,6 +97,18 @@ func (fn OpenFunc) Tx(ctx context.Context, callback func(ctx context.Context, db
 	return nil
 }
 
+func (fn OpenFunc) ReadOnly(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error {
+	db, err := fn.Open()
+	if err != nil {
+		return err
+	}
+	db = db.Begin()
+	defer db.Rollback()
+
+	ctx = context.WithValue(ctx, Key, db)
+	return callback(ctx, db)
+}
+
 // FromContext retrieves a db instance from a context
 func FromContext(ctx context.Context) (*gorm.DB, bool) {
 	v := ctx.Value(Key)
@@ -121,6 +134,7 @@ type Mock struct {
 	CommitCount   int
 	RollbackCount int
 	TxCount       int
+	ReadOnlyCount int
 }
 
 func (m *Mock) Open() (*gorm.DB, error) {
@@ -150,5 +164,10 @@ func (m *Mock) Rollback(db *gorm.DB) *gorm.DB {
 
 func (m *Mock) Tx(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error {
 	m.TxCount++
+	return callback(ctx, m.DB)
+}
+
+func (m *Mock) ReadOnly(ctx context.Context, callback func(ctx context.Context, db *gorm.DB) error) error {
+	m.ReadOnlyCount++
 	return callback(ctx, m.DB)
 }
