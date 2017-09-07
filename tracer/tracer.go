@@ -8,9 +8,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var DefaultTracer opentracing.Tracer
+var (
+	DefaultTracer opentracing.Tracer
+	StderrTracer  opentracing.Tracer
+)
 
-func init() {
+func newTracer(outputPaths ...string) opentracing.Tracer {
 	config := zap.NewProductionConfig()
 	config.DisableCaller = true
 	config.EncoderConfig.LevelKey = ""
@@ -19,14 +22,19 @@ func init() {
 	config.EncoderConfig.EncodeTime = func(t time.Time, encoder zapcore.PrimitiveArrayEncoder) {
 		encoder.AppendString(t.Format(time.RFC3339))
 	}
-	config.OutputPaths = []string{"stdout"}
+	config.OutputPaths = outputPaths
 
 	l, _ := config.Build()
 	emitter := &ZapEmitter{
 		Logger:      l,
 		SkipCallers: 4,
 	}
-	DefaultTracer = New(emitter)
+	return New(emitter)
+}
+
+func init() {
+	DefaultTracer = newTracer("stdout")
+	StderrTracer = newTracer("stderr")
 }
 
 type Tracer struct {
