@@ -22,8 +22,16 @@ func (m *multiSpan) Map(fn func(span opentracing.Span) opentracing.Span) opentra
 	}
 }
 
+func (m *multiSpan) ChildSpans() []opentracing.Span {
+	return m.spans
+}
+
 func (m *multiSpan) ForeachBaggageItem(handler func(k, v string) bool) {
-	// intentionally left blank
+	if len(m.spans) == 0 {
+		return
+	}
+
+	m.spans[0].Context().ForeachBaggageItem(handler)
 }
 
 func (m *multiSpan) Finish() {
@@ -39,10 +47,7 @@ func (m *multiSpan) FinishWithOptions(opts opentracing.FinishOptions) {
 }
 
 func (m *multiSpan) Context() opentracing.SpanContext {
-	for _, span := range m.spans {
-		return span.Context()
-	}
-	panic("No underlying SpanContext")
+	return m
 }
 
 func (m *multiSpan) SetOperationName(operationName string) opentracing.Span {
@@ -130,8 +135,8 @@ type multiTracer struct {
 func (m *multiTracer) StartSpan(operationName string, opts ...opentracing.StartSpanOption) opentracing.Span {
 	spans := make([]opentracing.Span, len(m.tracers))
 
-	for index, tracer := range m.tracers {
-		span := tracer.StartSpan(operationName, opts...)
+	for index, t := range m.tracers {
+		span := t.StartSpan(operationName, opts...)
 		spans[index] = span
 	}
 
