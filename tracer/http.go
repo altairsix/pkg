@@ -21,9 +21,9 @@ func AWS(client *client.Client) {
 	})
 	client.Handlers.Complete.PushFront(func(req *request.Request) {
 		segment := SegmentFromContext(req.Context())
-		segment.LogFields(log.Int("statusCode", req.HTTPResponse.StatusCode))
+		segment.LogFields(log.Int("StatusCode", req.HTTPResponse.StatusCode))
 		if retries > 0 {
-			segment.LogFields(log.Int32("retries", retries))
+			segment.LogFields(log.Int32("Retries", retries))
 		}
 		segment.Finish()
 	})
