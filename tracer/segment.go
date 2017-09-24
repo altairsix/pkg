@@ -91,6 +91,16 @@ func (s *segment) Debug(msg string, fields ...log.Field) {
 	}
 }
 
+// Wrapf integrates the tracer with error messaging
+func (s *segment) Wrapf(err error, message string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	wrapped := Wrapf(err, message, args...)
+	s.LogFields(log.Error(wrapped))
+	return wrapped
+}
+
 func Caller(key string, skip int) log.Field {
 	_, file, line, _ := runtime.Caller(skip)
 	return log.String(key, filepath.Base(filepath.Dir(file))+"/"+filepath.Base(file)+":"+strconv.Itoa(line))
