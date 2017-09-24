@@ -37,6 +37,7 @@ type Segment interface {
 	SetBaggageItem(key, value string)
 	Info(msg string, fields ...log.Field)
 	Debug(msg string, fields ...log.Field)
+	Wrapf(err error, msg string, args ...interface{}) error
 }
 
 type segment struct {
@@ -125,3 +126,6 @@ func (nopSegment) LogFields(fields ...log.Field)         {}
 func (nopSegment) SetBaggageItem(key, value string)      {}
 func (nopSegment) Info(msg string, fields ...log.Field)  {}
 func (nopSegment) Debug(msg string, fields ...log.Field) {}
+func (nopSegment) Wrapf(err error, msg string, args ...interface{}) error {
+	return Wrapf(err, msg, args...)
+}
