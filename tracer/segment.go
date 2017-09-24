@@ -93,13 +93,10 @@ func (s *segment) Debug(msg string, fields ...log.Field) {
 }
 
 // Wrapf integrates the tracer with error messaging
-func (s *segment) Errorf(err error, message string, args ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-	wrapped := Errorf(err, message, args...)
-	s.LogFields(log.Error(wrapped))
-	return wrapped
+func (s *segment) Errorf(cause error, message string, args ...interface{}) error {
+	err := Errorf(cause, message, args...)
+	s.LogFields(log.Error(err))
+	return err
 }
 
 func Caller(key string, skip int) log.Field {
