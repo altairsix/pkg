@@ -24,11 +24,11 @@ func TestHasErr(t *testing.T) {
 			Match: true,
 		},
 		"wrapped": {
-			Error: tracer.Wrapf(io.EOF, "wrapped message"),
+			Error: tracer.Errorf(io.EOF, "wrapped message"),
 			Match: true,
 		},
 		"wrapped fail": {
-			Error: tracer.Wrapf(io.ErrClosedPipe, "wrapped message"),
+			Error: tracer.Errorf(io.ErrClosedPipe, "wrapped message"),
 			Match: false,
 		},
 	}

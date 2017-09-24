@@ -37,7 +37,7 @@ type Segment interface {
 	SetBaggageItem(key, value string)
 	Info(msg string, fields ...log.Field)
 	Debug(msg string, fields ...log.Field)
-	Wrapf(err error, msg string, args ...interface{}) error
+	Errorf(cause error, msg string, args ...interface{}) error
 }
 
 type segment struct {
@@ -93,11 +93,11 @@ func (s *segment) Debug(msg string, fields ...log.Field) {
 }
 
 // Wrapf integrates the tracer with error messaging
-func (s *segment) Wrapf(err error, message string, args ...interface{}) error {
+func (s *segment) Errorf(err error, message string, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
-	wrapped := Wrapf(err, message, args...)
+	wrapped := Errorf(err, message, args...)
 	s.LogFields(log.Error(wrapped))
 	return wrapped
 }
@@ -126,6 +126,6 @@ func (nopSegment) LogFields(fields ...log.Field)         {}
 func (nopSegment) SetBaggageItem(key, value string)      {}
 func (nopSegment) Info(msg string, fields ...log.Field)  {}
 func (nopSegment) Debug(msg string, fields ...log.Field) {}
-func (nopSegment) Wrapf(err error, msg string, args ...interface{}) error {
-	return Wrapf(err, msg, args...)
+func (nopSegment) Errorf(cause error, msg string, args ...interface{}) error {
+	return Errorf(cause, msg, args...)
 }

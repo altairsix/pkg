@@ -23,13 +23,9 @@ func (e errType) Error() string {
 	return e.message + ": " + e.cause.Error()
 }
 
-func Wrapf(err error, message string, args ...interface{}) error {
-	if err == nil {
-		return nil
-	}
-
+func Errorf(cause error, message string, args ...interface{}) error {
 	return errType{
-		cause:   err,
+		cause:   cause,
 		message: fmt.Sprintf(message, args...),
 	}
 }
