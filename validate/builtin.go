@@ -68,6 +68,36 @@ func IsRequired(in interface{}) bool {
 		return v != ""
 	case []types.Key:
 		return len(v) > 0
+	case []bool:
+		return len(v) > 0
+	case []struct{}:
+		return len(v) > 0
+	case []string:
+		return len(v) > 0
+	case []int:
+		return len(v) > 0
+	case []int8:
+		return len(v) > 0
+	case []int16:
+		return len(v) > 0
+	case []int32:
+		return len(v) > 0
+	case []int64:
+		return len(v) > 0
+	case []uint:
+		return len(v) > 0
+	case []uint8:
+		return len(v) > 0
+	case []uint16:
+		return len(v) > 0
+	case []uint32:
+		return len(v) > 0
+	case []uint64:
+		return len(v) > 0
+	case []float32:
+		return len(v) > 0
+	case []float64:
+		return len(v) > 0
 	}
 	return true
 }
