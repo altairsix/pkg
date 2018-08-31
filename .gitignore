@@ -8,3 +8,4 @@
 # 
 /test.json
 /local.env
+go.sum

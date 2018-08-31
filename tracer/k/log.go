@@ -49,9 +49,6 @@ func URL(url string) log.Field {
 
 // Err provides an error
 func Err(err error) log.Field {
-	if err == nil {
-		return log.Noop()
-	}
 	return log.Error(err)
 }
 
